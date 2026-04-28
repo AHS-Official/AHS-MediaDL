@@ -1,22 +1,26 @@
 ### AHS-MediaDL
-**تطبيق سطح مكتب احترافي ومفتوح المصدر لتحميل الفيديوهات والصوتيات بأعلى جودة.**
+**A professional open-source desktop application for downloading high-quality videos and audio.**
 
-#### 📖 عن المشروع
-تطبيق **AHS-MediaDL** هو أداة ذكية وسريعة صُممت لتسهيل عملية تحميل المحتوى من الإنترنت (فيديو وصوت). يتميز التطبيق بواجهة مستخدم عصرية وبسيطة، ويعتمد على محركات قوية في الخلفية لضمان الحصول على أعلى جودة ممكنة (تصل إلى 4K للفيديو، و 320kbps للصوتيات) مع دمج البيانات الوصفية تلقائياً.
+#### 📖 About the Project
 
-#### ✨ المميزات الأساسية (Features)
-* 🎬 **دعم شامل للجودات:** تحميل الفيديوهات بجميع الجودات المتاحة (من 144p لتوفير البيانات، وحتى 4K Ultra HD).
-* 🎵 **استخراج الصوت باحترافية:** تحويل الفيديوهات إلى ملفات صوتية نقية بصيغ متعددة (MP3, M4A) وبخيارات جودة تناسب الموبايل، السيارات، أو مضخمات الصوت.
-* 🖼️ **حقن البيانات الوصفية (Metadata):** دمج الصورة المصغرة (Thumbnail) واسم المقطع الأصلي داخل ملفات الـ MP3 تلقائياً.
-* ⚡ **متابعة حية للتحميل:** شريط تقدم ذكي يعرض (سرعة التحميل، المساحة المحملة والإجمالية، والوقت المتبقي لانتهاء التحميل).
-* 🖥️ **واجهة عصرية (GUI):** تصميم نظيف وسهل الاستخدام، خالٍ من الإعلانات والتعقيدات.
+**AHS-MediaDL** is a smart and fast tool designed to make downloading media (video and audio) from the internet easy. The application features a modern, user-friendly interface and relies on powerful background engines to ensure the highest possible quality (up to 4K for video and 320 kbps for audio) with automatic metadata embedding.
 
-#### 🛠️ التقنيات المستخدمة (Tech Stack)
-* **لغة البرمجة:** Python
-* **واجهة المستخدم:** PyQt6
-* **محرك التحميل الأساسي:** yt-dlp
-* **معالجة الميديا (الرندرة):** FFmpeg
+### ✨ Key Features
 
-#### 👨‍💻 فريق التطوير (Credits)
-* **المطور الأساسي:** [**AHS**] .
-* **المساعد البرمجي:** تم كتابة الكود بمساعدة **Gemini**
+* 🎬 **Comprehensive Quality Support:** Download videos in all available resolutions (from data-efficient 144p to 4K Ultra HD).
+
+* 🎵 **Professional Audio Extraction:** Convert videos to high-definition audio files in multiple formats (MP3, M4A) with quality options suitable for mobile devices, cars, and speakers.
+
+* 🖼️ **Metadata Embedding:** Automatically add thumbnails and original video titles to MP3 and MP4 files.
+
+* ⚡ **Live Download Tracking:** A smart progress bar displays download speed, downloaded file size versus total size, and estimated time of arrival.
+
+* 🖥️ **Modern and Responsive GUI:** A sleek, user-friendly, and ad-free interface that seamlessly adapts to system font settings and screen zoom.
+
+* 📥 **Multiple Downloads List:** A dedicated download management tab allows you to add multiple links simultaneously (bundled downloads) with full control (pause, resume, and cancel).
+
+#### 🛠️ Technologies Used
+* **Programming Language:** Python
+* **GUI Framework:** PyQt6
+* **Primary Download Engine:** yt-dlp
+* **Media Processing (Merge/Extract):** FFmpeg
