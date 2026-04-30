@@ -12,12 +12,12 @@
 * 🎵 **Professional Audio Extraction:** Convert videos to high-definition audio files in multiple formats (MP3, M4A) with quality options suitable for mobile devices, cars, and speakers.
 
 * 🖼️ **Metadata Embedding:** Automatically add thumbnails and original video titles to MP3 and MP4 files.
+* 
+* 📥 **Multiple Downloads List:** A dedicated download management tab allows you to add multiple links simultaneously (bundled downloads) with full control (pause, resume, and cancel).
 
 * ⚡ **Live Download Tracking:** A smart progress bar displays download speed, downloaded file size versus total size, and estimated time of arrival.
 
 * 🖥️ **Modern and Responsive GUI:** A sleek, user-friendly, and ad-free interface that seamlessly adapts to system font settings and screen zoom.
-
-* 📥 **Multiple Downloads List:** A dedicated download management tab allows you to add multiple links simultaneously (bundled downloads) with full control (pause, resume, and cancel).
 
 #### 🛠️ Technologies Used
 * **Programming Language:** Python
