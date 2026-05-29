@@ -7,7 +7,7 @@ utils_dir = os.path.dirname(locales_dir)
 root_dir = os.path.dirname(utils_dir)
 settings_path = os.path.join(root_dir, 'data', 'settings.json')
 
-lang = "system"  # الافتراضي هو النظام
+lang = "system"
 if os.path.exists(settings_path):
     try:
         with open(settings_path, 'r', encoding='utf-8') as f:
@@ -44,14 +44,20 @@ def resolve_lang(lang_setting):
 # تحديد اللغة الفعالة للتطبيق
 lang = resolve_lang(lang)
 
-# تحميل المفردات المناسبة بناءً على اللغة المحددة
+# تحميل المفردات المناسبة بناءً على اللغة المحددة مع دعم آلية الاحتياط باللغة الإنجليزية (English Fallback)
+from utils.locales.strings_en import STRINGS as EN_STRINGS
+
+STRINGS = {}
 if lang == "ar":
     try:
-        from utils.locales.strings_ar import STRINGS
+        from utils.locales.strings_ar import STRINGS as AR_STRINGS
+        # دمج الكلمات: الكلمات العربية تُحدِّث الإنجليزية، وإذا غاب أي مفتاح يُعرض بالإنجليزية تلقائياً
+        STRINGS = EN_STRINGS.copy()
+        STRINGS.update(AR_STRINGS)
     except ImportError:
-        from utils.locales.strings_en import STRINGS
+        STRINGS = EN_STRINGS
 else:
-    from utils.locales.strings_en import STRINGS
+    STRINGS = EN_STRINGS
 
 def tr(key, default=""):
     """

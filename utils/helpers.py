@@ -1,17 +1,16 @@
 import os
 import sys
 import re
+import json
 
 def resource_path(relative_path):
     """
     تحجيم المسارات لتعمل أثناء التطوير أو بعد تحويل التطبيق إلى ملف تنفيذي (.exe)
     """
     try:
-        # إذا تم تجميع البرنامج بـ PyInstaller
         base_path = sys._MEIPASS
     except Exception:
-        base_path = os.path.abspath(".")
-    
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base_path, relative_path)
 
 def clean_and_shorten_title(title, limit=150):
@@ -29,25 +28,19 @@ def get_colored_icon(relative_path, color_hex):
     """
     from PyQt6.QtGui import QIcon, QPixmap
     from PyQt6.QtCore import QByteArray
-    
     path = resource_path(relative_path)
     if not os.path.exists(path):
         return QIcon()
-        
     try:
         with open(path, 'r', encoding='utf-8') as f:
             svg_content = f.read()
-        
-        # استبدال currentColor بلون الهكس المطلوب
         colored_svg = svg_content.replace('currentColor', color_hex)
-        
         ba = QByteArray(colored_svg.encode('utf-8'))
         pixmap = QPixmap()
         if pixmap.loadFromData(ba, 'SVG'):
             return QIcon(pixmap)
     except Exception as e:
         print(f"Error coloring icon {relative_path}: {e}")
-        
     return QIcon(path)
 
 def get_current_theme_color():
@@ -59,7 +52,6 @@ def get_current_theme_color():
     if os.path.exists(settings_file):
         try:
             with open(settings_file, 'r', encoding='utf-8') as f:
-                import json
                 data = json.load(f)
                 theme = data.get("theme", "auto")
         except:
@@ -83,11 +75,7 @@ def get_full_language_name(code):
         "ru": tr("lang_ru_name", "Russian"),
         "zh": tr("lang_zh_name", "Chinese")
     }
-    
-    # تنظيف الكود (مثال ar-orig أو en-US)
     base_code = code.split('-')[0].lower()
-    
-    # قائمة كاملة للغات الاحتياطية بالإنجليزية
     iso_languages = {
         "aa": "Afar", "ab": "Abkhazian", "ae": "Avestan", "af": "Afrikaans", "ak": "Akan",
         "am": "Amharic", "an": "Aragonese", "ar": "Arabic", "as": "Assamese", "av": "Avaric",
@@ -127,7 +115,6 @@ def get_full_language_name(code):
         "vo": "Volapük", "wa": "Walloon", "wo": "Wolof", "xh": "Xhosa", "yi": "Yiddish",
         "yo": "Yoruba", "za": "Zhuang", "zh": "Chinese", "zu": "Zulu"
     }
-    
     name = lang_names.get(base_code) or iso_languages.get(base_code)
     if name:
         return name
@@ -139,20 +126,13 @@ def convert_to_lrc(subtitle_path, lrc_path):
     """
     if not os.path.exists(subtitle_path):
         return False
-        
     try:
         with open(subtitle_path, 'r', encoding='utf-8', errors='ignore') as f:
             lines = f.readlines()
-            
         lrc_lines = []
-        
-        # Regex to match timestamps like 00:01:20,000 or 00:01:20.000 or 01:20.000
-        # Group 1: hours (optional), Group 2: minutes, Group 3: seconds, Group 4: milliseconds/centiseconds
         timestamp_regex = re.compile(r'(?:(\d{2}):)?(\d{2}):(\d{2})[.,](\d{2,3})')
-        
         current_text = []
         current_time_str = None
-        
         for line in lines:
             line_str = line.strip()
             if not line_str:
@@ -163,10 +143,7 @@ def convert_to_lrc(subtitle_path, lrc_path):
                     current_text = []
                     current_time_str = None
                 continue
-                
-            # Check if this line contains timecode arrow "-->"
             if "-->" in line_str:
-                # Find the start timecode
                 start_part = line_str.split("-->")[0].strip()
                 match = timestamp_regex.search(start_part)
                 if match:
@@ -174,32 +151,19 @@ def convert_to_lrc(subtitle_path, lrc_path):
                     minutes = int(match.group(2))
                     seconds = int(match.group(3))
                     ms_str = match.group(4)
-                    
-                    # Convert to centiseconds (2 digits)
                     csecs = int(ms_str[:2])
-                    
-                    # Total minutes
                     total_minutes = hours * 60 + minutes
                     current_time_str = f"[{total_minutes:02d}:{seconds:02d}.{csecs:02d}]"
                 continue
-                
-            # Skip indices (numbers) and WEBVTT headers
             if line_str.isdigit() or line_str.upper() == "WEBVTT" or line_str.startswith("NOTE"):
                 continue
-                
-            # This is subtitle text
-            # Remove HTML tags like <b> or <i> or <c>
             clean_line = re.sub(r'<[^>]*>', '', line_str)
             if clean_line:
                 current_text.append(clean_line)
-                
-        # Append last block
         if current_time_str and current_text:
             clean_text = " ".join(current_text)
             if clean_text:
                 lrc_lines.append(f"{current_time_str}{clean_text}")
-                
-        # Save lrc file
         with open(lrc_path, 'w', encoding='utf-8') as f:
             f.write("\n".join(lrc_lines))
         return True
