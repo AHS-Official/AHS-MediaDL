@@ -1,7 +1,6 @@
 import os
 import json
 
-# تحديد مسار ملف settings.json
 locales_dir = os.path.dirname(os.path.abspath(__file__))
 utils_dir = os.path.dirname(locales_dir)
 root_dir = os.path.dirname(utils_dir)
@@ -41,17 +40,14 @@ def resolve_lang(lang_setting):
             return "en"
     return lang_setting
 
-# تحديد اللغة الفعالة للتطبيق
 lang = resolve_lang(lang)
 
-# تحميل المفردات المناسبة بناءً على اللغة المحددة مع دعم آلية الاحتياط باللغة الإنجليزية (English Fallback)
 from utils.locales.strings_en import STRINGS as EN_STRINGS
 
 STRINGS = {}
 if lang == "ar":
     try:
         from utils.locales.strings_ar import STRINGS as AR_STRINGS
-        # دمج الكلمات: الكلمات العربية تُحدِّث الإنجليزية، وإذا غاب أي مفتاح يُعرض بالإنجليزية تلقائياً
         STRINGS = EN_STRINGS.copy()
         STRINGS.update(AR_STRINGS)
     except ImportError:
@@ -60,8 +56,4 @@ else:
     STRINGS = EN_STRINGS
 
 def tr(key, default=""):
-    """
-    دالة جلب النصوص بناءً على المفتاح.
-    إذا لم تجده تبحث عن القيمة الافتراضية الممررة، وإذا لم تجدها تطبع المفتاح نفسه.
-    """
     return STRINGS.get(key, default or key)
