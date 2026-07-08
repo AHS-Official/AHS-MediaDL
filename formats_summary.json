@@ -1,0 +1,250 @@
+[
+    {
+        "format_id": "sb3",
+        "ext": "mhtml",
+        "height": 27,
+        "vcodec": "none",
+        "acodec": "none",
+        "filesize": null
+    },
+    {
+        "format_id": "sb2",
+        "ext": "mhtml",
+        "height": 45,
+        "vcodec": "none",
+        "acodec": "none",
+        "filesize": null
+    },
+    {
+        "format_id": "sb1",
+        "ext": "mhtml",
+        "height": 90,
+        "vcodec": "none",
+        "acodec": "none",
+        "filesize": null
+    },
+    {
+        "format_id": "sb0",
+        "ext": "mhtml",
+        "height": 180,
+        "vcodec": "none",
+        "acodec": "none",
+        "filesize": null
+    },
+    {
+        "format_id": "139",
+        "ext": "m4a",
+        "height": null,
+        "vcodec": "none",
+        "acodec": "mp4a.40.5",
+        "filesize": 1300631
+    },
+    {
+        "format_id": "249",
+        "ext": "webm",
+        "height": null,
+        "vcodec": "none",
+        "acodec": "opus",
+        "filesize": 1231355
+    },
+    {
+        "format_id": "140",
+        "ext": "m4a",
+        "height": null,
+        "vcodec": "none",
+        "acodec": "mp4a.40.2",
+        "filesize": 3449447
+    },
+    {
+        "format_id": "251",
+        "ext": "webm",
+        "height": null,
+        "vcodec": "none",
+        "acodec": "opus",
+        "filesize": 3433755
+    },
+    {
+        "format_id": "160",
+        "ext": "mp4",
+        "height": 144,
+        "vcodec": "avc1.4d400c",
+        "acodec": "none",
+        "filesize": 2058142
+    },
+    {
+        "format_id": "278",
+        "ext": "webm",
+        "height": 144,
+        "vcodec": "vp9",
+        "acodec": "none",
+        "filesize": 1540844
+    },
+    {
+        "format_id": "394",
+        "ext": "mp4",
+        "height": 144,
+        "vcodec": "av01.0.00M.08",
+        "acodec": "none",
+        "filesize": 1505504
+    },
+    {
+        "format_id": "133",
+        "ext": "mp4",
+        "height": 240,
+        "vcodec": "avc1.4d4015",
+        "acodec": "none",
+        "filesize": 4310122
+    },
+    {
+        "format_id": "242",
+        "ext": "webm",
+        "height": 240,
+        "vcodec": "vp9",
+        "acodec": "none",
+        "filesize": 2706929
+    },
+    {
+        "format_id": "395",
+        "ext": "mp4",
+        "height": 240,
+        "vcodec": "av01.0.00M.08",
+        "acodec": "none",
+        "filesize": 3095447
+    },
+    {
+        "format_id": "134",
+        "ext": "mp4",
+        "height": 360,
+        "vcodec": "avc1.4d401e",
+        "acodec": "none",
+        "filesize": 8390921
+    },
+    {
+        "format_id": "18",
+        "ext": "mp4",
+        "height": 360,
+        "vcodec": "avc1.42001E",
+        "acodec": "mp4a.40.2",
+        "filesize": 11832459
+    },
+    {
+        "format_id": "243",
+        "ext": "webm",
+        "height": 360,
+        "vcodec": "vp9",
+        "acodec": "none",
+        "filesize": 6014765
+    },
+    {
+        "format_id": "396",
+        "ext": "mp4",
+        "height": 360,
+        "vcodec": "av01.0.01M.08",
+        "acodec": "none",
+        "filesize": 5685561
+    },
+    {
+        "format_id": "135",
+        "ext": "mp4",
+        "height": 480,
+        "vcodec": "avc1.4d401e",
+        "acodec": "none",
+        "filesize": 14103519
+    },
+    {
+        "format_id": "244",
+        "ext": "webm",
+        "height": 480,
+        "vcodec": "vp9",
+        "acodec": "none",
+        "filesize": 9381481
+    },
+    {
+        "format_id": "397",
+        "ext": "mp4",
+        "height": 480,
+        "vcodec": "av01.0.04M.08",
+        "acodec": "none",
+        "filesize": 9874826
+    },
+    {
+        "format_id": "136",
+        "ext": "mp4",
+        "height": 720,
+        "vcodec": "avc1.4d401f",
+        "acodec": "none",
+        "filesize": 26455880
+    },
+    {
+        "format_id": "247",
+        "ext": "webm",
+        "height": 720,
+        "vcodec": "vp9",
+        "acodec": "none",
+        "filesize": 17686717
+    },
+    {
+        "format_id": "398",
+        "ext": "mp4",
+        "height": 720,
+        "vcodec": "av01.0.05M.08",
+        "acodec": "none",
+        "filesize": 17593076
+    },
+    {
+        "format_id": "137",
+        "ext": "mp4",
+        "height": 1080,
+        "vcodec": "avc1.640028",
+        "acodec": "none",
+        "filesize": 80911999
+    },
+    {
+        "format_id": "248",
+        "ext": "webm",
+        "height": 1080,
+        "vcodec": "vp9",
+        "acodec": "none",
+        "filesize": 30846580
+    },
+    {
+        "format_id": "399",
+        "ext": "mp4",
+        "height": 1080,
+        "vcodec": "av01.0.08M.08",
+        "acodec": "none",
+        "filesize": 30415996
+    },
+    {
+        "format_id": "271",
+        "ext": "webm",
+        "height": 1440,
+        "vcodec": "vp9",
+        "acodec": "none",
+        "filesize": 151103346
+    },
+    {
+        "format_id": "400",
+        "ext": "mp4",
+        "height": 1440,
+        "vcodec": "av01.0.12M.08",
+        "acodec": "none",
+        "filesize": 122168277
+    },
+    {
+        "format_id": "313",
+        "ext": "webm",
+        "height": 2160,
+        "vcodec": "vp9",
+        "acodec": "none",
+        "filesize": 358608461
+    },
+    {
+        "format_id": "401",
+        "ext": "mp4",
+        "height": 2160,
+        "vcodec": "av01.0.12M.08",
+        "acodec": "none",
+        "filesize": 240334643
+    }
+]
