@@ -1,0 +1,48 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Operating system files
+Thumbs.db
+db.properties
+Desktop.ini
+.DS_Store
+
+# Local application data and settings
+config.json
+history.json
+ahs_settings.json
+batch_links.txt
+formats_summary.json
+cache/
+
+# Log files and crash dumps
+*.log
+crash.log
+
+# Temporary scratch and test files
+scratch/
+test_*.py
+
+# Virtual environment directories
+venv/
+.venv/
+env/
+.env
+ENV/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Installer and build artifacts
+build/
+dist/
+*.spec
+
+# Local FFmpeg binaries
+ffmpeg/
+bin/ffmpeg.exe
+bin/ffprobe.exe
+ffmpeg.exe
+ffprobe.exe
