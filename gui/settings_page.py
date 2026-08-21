@@ -1,173 +1,220 @@
 import sys
 import os
-from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QComboBox, QCheckBox, QPushButton, QFileDialog,
-                             QWidget, QApplication, QTabWidget, QSpinBox, QFontComboBox)
-from PyQt6.QtWidgets import QListWidget, QStackedWidget
+                             QApplication, QSpinBox, QFontComboBox, QFrame,
+                             QScrollArea, QStackedWidget, QGridLayout, QSizePolicy)
 from PyQt6.QtCore import Qt
 from utils.settings import app_config, save_settings
-from gui.theme import apply_theme
+from gui.theme import styled, apply_theme, Theme
 from utils import strings 
 
 class SettingsWidget(QWidget):
     def __init__(self, parent=None, go_back_callback=None):
         super().__init__(parent)
         self.setWindowTitle(strings.APP_SET_TITLE)
-        self.resize(650, 450)
 
-        self.main_layout = QHBoxLayout(self)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
-        self.main_layout.setSpacing(0)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(24, 20, 24, 20)
+        main_layout.setSpacing(16)
 
-        self.sidebar = QListWidget()
-        self.sidebar.setFixedWidth(160)
-        self.sidebar.setObjectName("Sidebar")
-        border_style = "border-left: 1px solid rgba(128, 128, 128, 0.2);" if strings.is_ar else "border-right: 1px solid rgba(128, 128, 128, 0.2);"
-        self.sidebar.setStyleSheet(f"""
-            QListWidget#Sidebar {{
-                background-color: rgba(0, 0, 0, 0.05); /* لون خلفية خفيف */
-                border: none;
-                {border_style}
-                padding-top: 10px;
-                font-size: 13px;
-                font-weight: bold;
-            }}
-            QListWidget#Sidebar::item {{
-                padding: 12px;
-                margin: 4px 8px;
-                border-radius: 6px;
-            }}
-            QListWidget#Sidebar::item:selected {{
-                background-color: #4d78cc; /* لونك الأزرق المميز */
-                color: white;
-            }}
-            QListWidget#Sidebar::item:hover:!selected {{
-                background-color: rgba(128, 128, 128, 0.1);
-            }}
-        """)
-        self.main_layout.addWidget(self.sidebar)
-
-        right_container = QWidget()
-        right_layout = QVBoxLayout(right_container)
-        right_layout.setContentsMargins(20, 20, 20, 20)
+        # --- 1. الهيدر العلوي: العنوان وأزرار الأقسام الأفقية (Segmented Bar) ---
+        header_layout = QHBoxLayout()
         
-        self.stacked_widget = QStackedWidget()
-        right_layout.addWidget(self.stacked_widget)
-
-        btn_layout = QHBoxLayout()
-        btn_layout.addStretch()
+        self.header_title = QLabel(strings.APP_SET_TITLE)
+        self.header_title.setStyleSheet("font-size: 18px; font-weight: 800; color: #f3f4f6;")
+        header_layout.addWidget(self.header_title)
+        header_layout.addStretch()
 
         self.restart_btn = QPushButton(strings.BTN_SET_RESTART)
-        self.restart_btn.setStyleSheet("background-color: #e67e22; color: white; font-weight: bold; padding: 6px 15px; border-radius: 5px;")
+        self.restart_btn.setObjectName("primary")
+        self.restart_btn.setStyleSheet("background-color: #f59e0b; color: #ffffff; font-weight: bold; padding: 6px 14px; border-radius: 6px;")
         self.restart_btn.clicked.connect(self.save_and_restart)
-        btn_layout.addWidget(self.restart_btn)
+        self.restart_btn.hide()
+        header_layout.addWidget(self.restart_btn)
 
-        self.done_btn = QPushButton(strings.BTN_SET_DONE)
-        if go_back_callback:
-            self.done_btn.clicked.connect(go_back_callback)
-        self.done_btn.setStyleSheet("background-color: #4d78cc; color: white; font-weight: bold; padding: 6px 20px; border-radius: 5px;")
-        btn_layout.addWidget(self.done_btn)
+        main_layout.addLayout(header_layout)
 
-        right_layout.addLayout(btn_layout)
-        self.main_layout.addWidget(right_container, stretch=1)
+        # شريط الأقسام الأفقي (Pill Tabs)
+        nav_bar = QHBoxLayout()
+        nav_bar.setSpacing(8)
+        
+        self.tab_btn_gen = QPushButton("🎨 " + ("عام والمظهر" if strings.is_ar else "General & Appearance"))
+        self.tab_btn_gen.setObjectName("SettingsSegmentBtn")
+        self.tab_btn_gen.setProperty("active", "true")
+        self.tab_btn_gen.clicked.connect(lambda: self.switch_page(0))
 
-        self.sidebar.currentRowChanged.connect(self.stacked_widget.setCurrentIndex)
+        self.tab_btn_dl = QPushButton("📥 " + ("التحميلات والترجمة" if strings.is_ar else "Downloads & Subtitles"))
+        self.tab_btn_dl.setObjectName("SettingsSegmentBtn")
+        self.tab_btn_dl.clicked.connect(lambda: self.switch_page(1))
 
+        self.tab_btn_adv = QPushButton("🛠️ " + ("خيارات متقدمة" if strings.is_ar else "Advanced"))
+        self.tab_btn_adv.setObjectName("SettingsSegmentBtn")
+        self.tab_btn_adv.clicked.connect(lambda: self.switch_page(2))
+
+        nav_bar.addWidget(self.tab_btn_gen)
+        nav_bar.addWidget(self.tab_btn_dl)
+        nav_bar.addWidget(self.tab_btn_adv)
+        nav_bar.addStretch()
+
+        main_layout.addLayout(nav_bar)
+
+        # --- 2. مساحة المحتوى القابلة للتمرير (Scroll Area) ---
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 8, 0, 0)
+        scroll_layout.setSpacing(16)
+
+        self.stacked_widget = QStackedWidget()
         self.setup_pages()
+        scroll_layout.addWidget(self.stacked_widget)
+        scroll_layout.addStretch()
+
+        scroll_area.setWidget(scroll_content)
+        main_layout.addWidget(scroll_area, stretch=1)
 
         self.load_data()
         self.connect_signals()
 
-    def setup_pages(self):
-        self.tab_general = QWidget()
-        layout_general = QVBoxLayout(self.tab_general)
+    def switch_page(self, index: int):
+        self.stacked_widget.setCurrentIndex(index)
+        
+        self.tab_btn_gen.setProperty("active", "true" if index == 0 else "false")
+        self.tab_btn_dl.setProperty("active", "true" if index == 1 else "false")
+        self.tab_btn_adv.setProperty("active", "true" if index == 2 else "false")
 
-        layout_general.addWidget(QLabel(strings.LBL_SET_LANG))
+        for btn in [self.tab_btn_gen, self.tab_btn_dl, self.tab_btn_adv]:
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+
+    def setup_pages(self):
+        # ═════════════════════════════════════════════════════════════
+        # الصفحة 1: عام والمظهر (General & Appearance)
+        # ═════════════════════════════════════════════════════════════
+        self.page_gen = QWidget()
+        page_gen_layout = QVBoxLayout(self.page_gen)
+        page_gen_layout.setContentsMargins(0, 0, 0, 0)
+        page_gen_layout.setSpacing(14)
+
+        card_appearance = QFrame()
+        card_appearance.setObjectName("OptionsCard")
+        card_app_layout = QVBoxLayout(card_appearance)
+        card_app_layout.setContentsMargins(18, 18, 18, 18)
+        card_app_layout.setSpacing(14)
+
+        title_app = QLabel("🎨 " + ("المظهر والتخصيص" if strings.is_ar else "Appearance & Customization"))
+        title_app.setStyleSheet("font-size: 14px; font-weight: 700; color: #f3f4f6;")
+        card_app_layout.addWidget(title_app)
+
+        grid_app = QGridLayout()
+        grid_app.setHorizontalSpacing(16)
+        grid_app.setVerticalSpacing(12)
+
+        # اللغة
+        lbl_lang = QLabel(strings.LBL_SET_LANG)
+        lbl_lang.setStyleSheet("font-weight: 600; color: #9ca3af;")
         self.lang_combo = QComboBox()
         self.lang_combo.addItem(strings.OPT_SET_LANG_SYS, "system")
         self.lang_combo.addItem(strings.OPT_SET_LANG_EN, "en")
         self.lang_combo.addItem(strings.OPT_SET_LANG_AR, "ar")
-        layout_general.addWidget(self.lang_combo)
+        grid_app.addWidget(lbl_lang, 0, 0)
+        grid_app.addWidget(self.lang_combo, 0, 1)
 
-        self.notify_check = QCheckBox(strings.CHK_SET_NOTIFY)
-        layout_general.addWidget(self.notify_check)
-
-        self.close_to_tray_check = QCheckBox("التصغير للشريط العلوي عند الإغلاق (X)" if strings.is_ar else "Minimize to tray on close (X)")
-        layout_general.addWidget(self.close_to_tray_check)
-
-        layout_general.addStretch()
-        self.sidebar.addItem(strings.SET_TAB_GENERAL)
-        self.stacked_widget.addWidget(self.tab_general)
-
-        self.tab_appearance = QWidget()
-        layout_appearance = QVBoxLayout(self.tab_appearance)
-
-        layout_appearance.addWidget(QLabel(strings.LBL_SET_THEME))
+        # الثيم
+        lbl_theme = QLabel(strings.LBL_SET_THEME)
+        lbl_theme.setStyleSheet("font-weight: 600; color: #9ca3af;")
         self.theme_combo = QComboBox()
         self.theme_combo.addItem(strings.OPT_SET_THEME_AUTO, "auto")
         self.theme_combo.addItem(strings.OPT_SET_THEME_LIGHT, "light")
         self.theme_combo.addItem(strings.OPT_SET_THEME_DARK, "dark")
-        layout_appearance.addWidget(self.theme_combo)
+        grid_app.addWidget(lbl_theme, 1, 0)
+        grid_app.addWidget(self.theme_combo, 1, 1)
 
-        layout_appearance.addWidget(QLabel(strings.LBL_SET_FONT_FAMILY))
+        # نوع الخط
+        lbl_font = QLabel(strings.LBL_SET_FONT_FAMILY)
+        lbl_font.setStyleSheet("font-weight: 600; color: #9ca3af;")
         self.font_combo = QFontComboBox()
-        layout_appearance.addWidget(self.font_combo)
+        grid_app.addWidget(lbl_font, 2, 0)
+        grid_app.addWidget(self.font_combo, 2, 1)
 
-        layout_appearance.addWidget(QLabel(strings.LBL_SET_FONT_SIZE))
+        # حجم الخط
+        lbl_size = QLabel(strings.LBL_SET_FONT_SIZE)
+        lbl_size.setStyleSheet("font-weight: 600; color: #9ca3af;")
         self.font_size_spin = QSpinBox()
         self.font_size_spin.setRange(8, 30)
-        layout_appearance.addWidget(self.font_size_spin)
+        grid_app.addWidget(lbl_size, 3, 0)
+        grid_app.addWidget(self.font_size_spin, 3, 1)
 
-        win_size_layout = QHBoxLayout()
-        self.win_width_spin = QSpinBox()
-        self.win_width_spin.setRange(400, 1920)
-        self.win_width_spin.setPrefix("W: ")
-        self.win_height_spin = QSpinBox()
-        self.win_height_spin.setRange(400, 1080)
-        self.win_height_spin.setPrefix("H: ")
+        card_app_layout.addLayout(grid_app)
 
-        win_size_layout.addWidget(QLabel(strings.LBL_SET_WIN_WIDTH))
-        win_size_layout.addWidget(self.win_width_spin)
-        win_size_layout.addWidget(QLabel(strings.LBL_SET_WIN_HEIGHT))
-        win_size_layout.addWidget(self.win_height_spin)
-        layout_appearance.addLayout(win_size_layout)
-
+        card_app_layout.addSpacing(6)
+        self.notify_check = QCheckBox(strings.CHK_SET_NOTIFY)
         self.thumb_check = QCheckBox(strings.CHK_SET_THUMB)
-        layout_appearance.addWidget(self.thumb_check) 
+        card_app_layout.addWidget(self.notify_check)
+        card_app_layout.addWidget(self.thumb_check)
 
-        layout_appearance.addStretch()
-        self.sidebar.addItem(strings.SET_TAB_APPEARANCE)
-        self.stacked_widget.addWidget(self.tab_appearance)
+        page_gen_layout.addWidget(card_appearance)
+        page_gen_layout.addStretch()
+        self.stacked_widget.addWidget(self.page_gen)
 
-        self.tab_downloads = QWidget()
-        layout_downloads = QVBoxLayout(self.tab_downloads)
+        # ═════════════════════════════════════════════════════════════
+        # الصفحة 2: التحميلات والترجمة (Downloads & Subtitles)
+        # ═════════════════════════════════════════════════════════════
+        self.page_dl = QWidget()
+        page_dl_layout = QVBoxLayout(self.page_dl)
+        page_dl_layout.setContentsMargins(0, 0, 0, 0)
+        page_dl_layout.setSpacing(14)
 
-        layout_downloads.addWidget(QLabel(strings.LBL_SET_DL_LOC))
-        loc_layout = QHBoxLayout()
+        # كارت المسار والسرعة
+        card_loc = QFrame()
+        card_loc.setObjectName("OptionsCard")
+        card_loc_layout = QVBoxLayout(card_loc)
+        card_loc_layout.setContentsMargins(18, 18, 18, 18)
+        card_loc_layout.setSpacing(14)
+
+        title_loc = QLabel("📁 " + ("مسار وسرعة التحميل" if strings.is_ar else "Download Path & Speed"))
+        title_loc.setStyleSheet("font-size: 14px; font-weight: 700; color: #f3f4f6;")
+        card_loc_layout.addWidget(title_loc)
+
+        grid_loc = QGridLayout()
+        grid_loc.setHorizontalSpacing(16)
+        grid_loc.setVerticalSpacing(12)
+
+        lbl_loc = QLabel(strings.LBL_SET_DL_LOC)
+        lbl_loc.setStyleSheet("font-weight: 600; color: #9ca3af;")
+        loc_h = QHBoxLayout()
         self.location_combo = QComboBox()
         self.location_combo.addItem(strings.OPT_SET_LOC_ASK, "ask")
         self.location_combo.addItem(strings.OPT_SET_LOC_AUTO, "auto")
         self.location_combo.addItem(strings.OPT_SET_LOC_CUSTOM, "custom")
-        loc_layout.addWidget(self.location_combo)
+        loc_h.addWidget(self.location_combo, stretch=1)
 
         self.custom_loc_btn = QPushButton(strings.BTN_SET_BROWSE)
-        self.custom_loc_btn.setStyleSheet("background-color: #34495e; color: white; border-radius: 4px; padding: 4px;")
+        self.custom_loc_btn.setObjectName("ghost")
         self.custom_loc_btn.hide()
-        loc_layout.addWidget(self.custom_loc_btn)
-        layout_downloads.addLayout(loc_layout)
+        loc_h.addWidget(self.custom_loc_btn)
+        grid_loc.addWidget(lbl_loc, 0, 0)
+        grid_loc.addLayout(loc_h, 0, 1)
 
-        layout_downloads.addWidget(QLabel(strings.LBL_SET_SPEED))
-        speed_layout = QHBoxLayout()
+        lbl_speed = QLabel(strings.LBL_SET_SPEED)
+        lbl_speed.setStyleSheet("font-weight: 600; color: #9ca3af;")
+        speed_h = QHBoxLayout()
         self.speed_combo = QComboBox()
         self.speed_combo.addItem(strings.OPT_SET_SPEED_NONE, "0")
         self.speed_combo.addItem("500 KB/s", "500K")
         self.speed_combo.addItem("1 MB/s", "1M")
         self.speed_combo.addItem("2 MB/s", "2M")
         self.speed_combo.addItem(strings.OPT_SET_LOC_CUSTOM, "custom")
+        speed_h.addWidget(self.speed_combo, stretch=1)
 
         self.custom_speed_widget = QWidget()
         custom_layout = QHBoxLayout(self.custom_speed_widget)
         custom_layout.setContentsMargins(0, 0, 0, 0)
+        custom_layout.setSpacing(4)
         self.custom_speed_spin = QSpinBox()
         self.custom_speed_spin.setRange(1, 50000)
         self.custom_speed_unit = QComboBox()
@@ -175,53 +222,102 @@ class SettingsWidget(QWidget):
         custom_layout.addWidget(self.custom_speed_spin)
         custom_layout.addWidget(self.custom_speed_unit)
         self.custom_speed_widget.hide()
+        speed_h.addWidget(self.custom_speed_widget)
 
-        speed_layout.addWidget(self.speed_combo)
-        speed_layout.addWidget(self.custom_speed_widget)
-        layout_downloads.addLayout(speed_layout)
+        grid_loc.addWidget(lbl_speed, 1, 0)
+        grid_loc.addLayout(speed_h, 1, 1)
 
-        layout_downloads.addWidget(QLabel(strings.LBL_SET_CONCURRENT))
+        lbl_conc = QLabel(strings.LBL_SET_CONCURRENT)
+        lbl_conc.setStyleSheet("font-weight: 600; color: #9ca3af;")
         self.concurrent_spin = QSpinBox()
         self.concurrent_spin.setRange(1, 10)
-        layout_downloads.addWidget(self.concurrent_spin)
+        grid_loc.addWidget(lbl_conc, 2, 0)
+        grid_loc.addWidget(self.concurrent_spin, 2, 1)
 
+        card_loc_layout.addLayout(grid_loc)
         self.data_saver_check = QCheckBox(strings.CHK_SET_DATA_SAVER)
-        layout_downloads.addWidget(self.data_saver_check)
+        card_loc_layout.addWidget(self.data_saver_check)
+        page_dl_layout.addWidget(card_loc)
 
-        layout_downloads.addStretch()
-        self.sidebar.addItem(strings.SET_TAB_DOWNLOADS)
-        self.stacked_widget.addWidget(self.tab_downloads)
+        # كارت الترجمة والجودة
+        card_subs = QFrame()
+        card_subs.setObjectName("OptionsCard")
+        card_subs_layout = QVBoxLayout(card_subs)
+        card_subs_layout.setContentsMargins(18, 18, 18, 18)
+        card_subs_layout.setSpacing(14)
 
-        self.tab_quality = QWidget()
-        layout_quality = QVBoxLayout(self.tab_quality)
+        title_subs = QLabel("🌐 " + ("الترجمة والجودة" if strings.is_ar else "Subtitles & Quality"))
+        title_subs.setStyleSheet("font-size: 14px; font-weight: 700; color: #f3f4f6;")
+        card_subs_layout.addWidget(title_subs)
 
-        self.embed_subs_check = QCheckBox(strings.CHK_EMBED_SUBS)
-        layout_quality.addWidget(self.embed_subs_check)
+        grid_subs = QGridLayout()
+        grid_subs.setHorizontalSpacing(16)
+        grid_subs.setVerticalSpacing(12)
 
-        layout_quality.addWidget(QLabel(strings.LBL_SET_PRIM_SUB))
+        lbl_p_sub = QLabel(strings.LBL_SET_PRIM_SUB)
+        lbl_p_sub.setStyleSheet("font-weight: 600; color: #9ca3af;")
         self.prim_sub_combo = QComboBox()
         self.prim_sub_combo.addItem("العربية (Arabic)" if strings.is_ar else "Arabic", "ar")
         self.prim_sub_combo.addItem("English", "en")
         self.prim_sub_combo.addItem("Français (French)" if strings.is_ar else "French", "fr")
         self.prim_sub_combo.addItem("Español (Spanish)" if strings.is_ar else "Spanish", "es")
-        layout_quality.addWidget(self.prim_sub_combo)
+        grid_subs.addWidget(lbl_p_sub, 0, 0)
+        grid_subs.addWidget(self.prim_sub_combo, 0, 1)
 
-        layout_quality.addWidget(QLabel(strings.LBL_SET_SEC_SUB))
+        lbl_s_sub = QLabel(strings.LBL_SET_SEC_SUB)
+        lbl_s_sub.setStyleSheet("font-weight: 600; color: #9ca3af;")
         self.sec_sub_combo = QComboBox()
         self.sec_sub_combo.addItem("English", "en")
         self.sec_sub_combo.addItem("العربية (Arabic)" if strings.is_ar else "Arabic", "ar")
         self.sec_sub_combo.addItem("Français (French)" if strings.is_ar else "French", "fr")
         self.sec_sub_combo.addItem("Español (Spanish)" if strings.is_ar else "Spanish", "es")
-        layout_quality.addWidget(self.sec_sub_combo)
+        grid_subs.addWidget(lbl_s_sub, 1, 0)
+        grid_subs.addWidget(self.sec_sub_combo, 1, 1)
 
-        layout_quality.addStretch()
-        self.sidebar.addItem(strings.SET_TAB_QUALITY)
-        self.stacked_widget.addWidget(self.tab_quality)
+        card_subs_layout.addLayout(grid_subs)
 
-        self.tab_advanced = QWidget()
-        layout_advanced = QVBoxLayout(self.tab_advanced)
+        self.embed_subs_check = QCheckBox(strings.CHK_EMBED_SUBS)
+        card_subs_layout.addWidget(self.embed_subs_check)
 
-        layout_advanced.addWidget(QLabel(strings.LBL_SET_COOKIES))
+        downgrade_layout = QHBoxLayout()
+        self.downgrade_check = QCheckBox(strings.CHK_SET_DOWNGRADE)
+        downgrade_info_lbl = QLabel("ℹ️")
+        downgrade_info_lbl.setToolTip(strings.TOOLTIP_DOWNGRADE_INFO)
+        downgrade_info_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
+        downgrade_layout.addWidget(self.downgrade_check)
+        downgrade_layout.addWidget(downgrade_info_lbl)
+        downgrade_layout.addStretch()
+        card_subs_layout.addLayout(downgrade_layout)
+
+        page_dl_layout.addWidget(card_subs)
+        page_dl_layout.addStretch()
+        self.stacked_widget.addWidget(self.page_dl)
+
+        # ═════════════════════════════════════════════════════════════
+        # الصفحة 3: خيارات متقدمة (Advanced Options)
+        # ═════════════════════════════════════════════════════════════
+        self.page_adv = QWidget()
+        page_adv_layout = QVBoxLayout(self.page_adv)
+        page_adv_layout.setContentsMargins(0, 0, 0, 0)
+        page_adv_layout.setSpacing(14)
+
+        card_cookies = QFrame()
+        card_cookies.setObjectName("OptionsCard")
+        card_cook_layout = QVBoxLayout(card_cookies)
+        card_cook_layout.setContentsMargins(18, 18, 18, 18)
+        card_cook_layout.setSpacing(12)
+
+        title_cook = QLabel("🍪 " + ("ملفات تعريف الارتباط (Cookies)" if strings.is_ar else "Browser Cookies"))
+        title_cook.setStyleSheet("font-size: 14px; font-weight: 700; color: #f3f4f6;")
+        card_cook_layout.addWidget(title_cook)
+
+        lbl_cook_desc = QLabel("يساعد استيراد ملفات تعريف الارتباط في تحميل مقاطع الفيديو المحمية أو الخاصة من المتصفح مباشرة." if strings.is_ar else "Import cookies to download private or restricted videos directly from your browser.")
+        lbl_cook_desc.setStyleSheet("font-size: 12px; color: #9ca3af;")
+        lbl_cook_desc.setWordWrap(True)
+        card_cook_layout.addWidget(lbl_cook_desc)
+
+        lbl_cookies = QLabel(strings.LBL_SET_COOKIES)
+        lbl_cookies.setStyleSheet("font-weight: 600; color: #9ca3af;")
         self.cookie_combo = QComboBox()
         self.cookie_combo.addItem(strings.OPT_SET_COOKIE_NONE, "none")
         self.cookie_combo.addItem("Google Chrome", "chrome")
@@ -229,27 +325,38 @@ class SettingsWidget(QWidget):
         self.cookie_combo.addItem("Microsoft Edge", "edge")
         self.cookie_combo.addItem("Brave", "brave")
         self.cookie_combo.addItem(strings.OPT_SET_COOKIE_CUSTOM, "custom")
-        layout_advanced.addWidget(self.cookie_combo)
+        card_cook_layout.addWidget(self.cookie_combo)
 
-        self.downgrade_check = QCheckBox(strings.CHK_SET_DOWNGRADE if hasattr(strings, 'CHK_SET_DOWNGRADE') else ("السماح بخفض الجودة" if strings.is_ar else "Allow Quality Downgrade"))
-        layout_advanced.addWidget(self.downgrade_check)
+        page_adv_layout.addWidget(card_cookies)
 
-        layout_advanced.addStretch() 
+        card_reset = QFrame()
+        card_reset.setObjectName("OptionsCard")
+        card_reset_layout = QVBoxLayout(card_reset)
+        card_reset_layout.setContentsMargins(18, 18, 18, 18)
+        card_reset_layout.setSpacing(12)
 
-        self.reset_all_btn = QPushButton(strings.BTN_FACTORY_RESET)
-        self.reset_all_btn.setStyleSheet("background-color: #c0392b; color: white; font-weight: bold; padding: 10px; border-radius: 5px;")
-        layout_advanced.addWidget(self.reset_all_btn)
-        
-        self.sidebar.addItem(strings.SET_TAB_ADVANCED)
-        self.stacked_widget.addWidget(self.tab_advanced)
+        title_reset = QLabel("⚠️ " + ("إعادة ضبط المصنع" if strings.is_ar else "Factory Reset"))
+        title_reset.setStyleSheet("font-size: 14px; font-weight: 700; color: #ef4444;")
+        card_reset_layout.addWidget(title_reset)
 
+        lbl_reset_desc = QLabel("إعادة تعيين كافة إعدادات التطبيق إلى حالتها الافتراضية الأولية." if strings.is_ar else "Reset all application settings and preferences to default.")
+        lbl_reset_desc.setStyleSheet("font-size: 12px; color: #9ca3af;")
+        card_reset_layout.addWidget(lbl_reset_desc)
+
+        self.reset_all_btn = styled.danger_button(strings.BTN_FACTORY_RESET)
+        self.reset_all_btn.setFixedHeight(36)
+        card_reset_layout.addWidget(self.reset_all_btn)
+
+        page_adv_layout.addWidget(card_reset)
+        page_adv_layout.addStretch()
+        self.stacked_widget.addWidget(self.page_adv)
+
+        # ربط الأحداث المباشرة
         self.location_combo.currentIndexChanged.connect(self.toggle_custom_location)
         self.custom_loc_btn.clicked.connect(self.browse_folder)
         self.speed_combo.currentIndexChanged.connect(self.toggle_custom_speed)
         self.custom_speed_unit.currentTextChanged.connect(self.on_speed_unit_changed)
         self.reset_all_btn.clicked.connect(self.factory_reset)
-
-        self.sidebar.setCurrentRow(0)
 
     def on_speed_unit_changed(self, text):
         if text == "KB/s": self.custom_speed_spin.setValue(100)
@@ -278,18 +385,20 @@ class SettingsWidget(QWidget):
     def load_data(self):
         idx = self.theme_combo.findData(app_config.get("theme", "auto"))
         if idx >= 0: self.theme_combo.setCurrentIndex(idx)
-        idx = self.lang_combo.findData(app_config.get("language", "system"))
+        
+        self.initial_lang = app_config.get("language", "system")
+        idx = self.lang_combo.findData(self.initial_lang)
         if idx >= 0: self.lang_combo.setCurrentIndex(idx)
+        
         idx = self.location_combo.findData(app_config.get("save_mode", "auto"))
         if idx >= 0: self.location_combo.setCurrentIndex(idx)
 
-        current_font = app_config.get("font_family", "system")
-        if current_font != "system":
-            self.font_combo.setCurrentText(current_font)
+        self.initial_font_family = app_config.get("font_family", "system")
+        if self.initial_font_family != "system":
+            self.font_combo.setCurrentText(self.initial_font_family)
         
-        self.font_size_spin.setValue(app_config.get("font_size", 12))
-        self.win_width_spin.setValue(app_config.get("window_width", 700))
-        self.win_height_spin.setValue(app_config.get("window_height", 650))
+        self.initial_font_size = app_config.get("font_size", 12)
+        self.font_size_spin.setValue(self.initial_font_size)
 
         if app_config.get("custom_path"):
             self.custom_loc_btn.setProperty("path", app_config.get("custom_path"))
@@ -329,7 +438,17 @@ class SettingsWidget(QWidget):
         c_idx = self.cookie_combo.findData(app_config.get("browser_cookies", "none"))
         if c_idx >= 0: self.cookie_combo.setCurrentIndex(c_idx)
 
-        self.close_to_tray_check.setChecked(app_config.get("close_to_tray", True))
+        self.check_restart_needed()
+
+    def check_restart_needed(self):
+        lang_changed = (self.lang_combo.currentData() != getattr(self, 'initial_lang', None))
+        font_f_changed = (self.font_combo.currentText() != getattr(self, 'initial_font_family', None))
+        font_s_changed = (self.font_size_spin.value() != getattr(self, 'initial_font_size', None))
+        
+        if lang_changed or font_f_changed or font_s_changed:
+            self.restart_btn.show()
+        else:
+            self.restart_btn.hide()
 
     def save_data(self):
         app_config["theme"] = self.theme_combo.currentData()
@@ -342,13 +461,8 @@ class SettingsWidget(QWidget):
         app_config["concurrent_downloads"] = self.concurrent_spin.value()
         app_config["show_thumbnails"] = self.thumb_check.isChecked()
         app_config["browser_cookies"] = self.cookie_combo.currentData()
-        # حفظ الخطوط
         app_config["font_family"] = self.font_combo.currentText()
         app_config["font_size"] = self.font_size_spin.value()
-        app_config["window_width"] = self.win_width_spin.value()
-        app_config["window_height"] = self.win_height_spin.value()
-
-        app_config["close_to_tray"] = self.close_to_tray_check.isChecked()
 
         if self.speed_combo.currentData() == "custom":
             unit = "M" if self.custom_speed_unit.currentText() == "MB/s" else "K"
@@ -362,9 +476,16 @@ class SettingsWidget(QWidget):
         app_config["secondary_sub_lang"] = self.sec_sub_combo.currentData()
         save_settings(app_config)
 
+    def on_restart_setting_changed(self):
+        self.save_data()
+        self.check_restart_needed()
+
     def connect_signals(self):
         self.theme_combo.currentIndexChanged.connect(self.save_and_apply_theme)
-        self.lang_combo.currentIndexChanged.connect(self.save_data)
+        self.lang_combo.currentIndexChanged.connect(self.on_restart_setting_changed)
+        self.font_combo.currentFontChanged.connect(self.on_restart_setting_changed)
+        self.font_size_spin.valueChanged.connect(self.on_restart_setting_changed)
+
         self.location_combo.currentIndexChanged.connect(self.save_data)
         self.speed_combo.currentIndexChanged.connect(self.save_data)
         self.custom_speed_spin.valueChanged.connect(self.save_data)
@@ -373,9 +494,9 @@ class SettingsWidget(QWidget):
         self.notify_check.stateChanged.connect(self.save_data)
         self.data_saver_check.stateChanged.connect(self.save_data)
         self.thumb_check.stateChanged.connect(self.save_data)
-        self.font_size_spin.valueChanged.connect(self.save_data)
         self.cookie_combo.currentIndexChanged.connect(self.on_cookie_changed)
-        self.close_to_tray_check.stateChanged.connect(self.save_data)
+
+        self.downgrade_check.stateChanged.connect(self.save_data)
         self.embed_subs_check.stateChanged.connect(self.save_data)
         self.prim_sub_combo.currentIndexChanged.connect(self.save_data)
         self.sec_sub_combo.currentIndexChanged.connect(self.save_data)
@@ -383,7 +504,7 @@ class SettingsWidget(QWidget):
     def save_and_apply_theme(self):
         self.save_data()
         app = QApplication.instance()
-        apply_theme(app, app_config["theme"])
+        apply_theme(app, app_config.get("theme", "auto"))
 
     def save_and_restart(self):
         self.save_data()
@@ -395,7 +516,6 @@ class SettingsWidget(QWidget):
         import os
         from utils.settings import default_config, save_settings
 
-        
         reply = QMessageBox.question(self, "تأكيد" if strings.is_ar else "Confirm", 
                                      strings.MSG_RESET_CONFIRM, 
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
@@ -406,8 +526,6 @@ class SettingsWidget(QWidget):
 
             app_config["font_family"] = "system"
             app_config["font_size"] = 12
-            app_config["window_width"] = 700
-            app_config["window_height"] = 650
             
             save_settings(app_config)
 

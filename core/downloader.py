@@ -4,8 +4,6 @@ import os
 import re
 from utils.settings import app_config, DEFAULT_DOWNLOAD_PATH
 from utils import strings
-import json
-from datetime import datetime
 
 class UserCancelledError(BaseException):
     pass
@@ -16,9 +14,8 @@ class DownloadThread(QThread):
     status_update = pyqtSignal(str)
     finished = pyqtSignal()
     error = pyqtSignal(str)
-    history_ready = pyqtSignal(dict)
 
-    def __init__(self, url, format_id, title, sub_langs=None, subs_only=False, embed_subs=False, save_dir=None, thumb_data=None, custom_metadata=None):
+    def __init__(self, url, format_id, title, sub_langs=None, subs_only=False, embed_subs=False, save_dir=None, thumb_data=None):
         super().__init__()
         self.url = url
         self.format_id = format_id
@@ -28,7 +25,6 @@ class DownloadThread(QThread):
         self.embed_subs = embed_subs
         self.save_dir = save_dir 
         self.thumb_data = thumb_data
-        self.custom_metadata = custom_metadata
         self.is_cancelled = False
         self.current_speed_bytes = 0
 
@@ -38,14 +34,14 @@ class DownloadThread(QThread):
 
         if d['status'] == 'downloading':
             self.current_speed_bytes = d.get('speed', 0) or 0
-            downloaded = d.get('downloaded_bytes', 0)
-            total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
+            downloaded = d.get('downloaded_bytes', 0) or 0
+            total = d.get('total_bytes') or d.get('total_bytes_estimate', 0) or 0
             if total > 0:
                 percent = int(downloaded / total * 100)
-                speed = d.get('_speed_str', '0 KB/s')
-                speed = re.sub(r'\x1b\[[0-9;]*[mK]', '', speed).strip()
-                eta = d.get('_eta_str', '--:--')
-                eta = re.sub(r'\x1b\[[0-9;]*[mK]', '', eta).strip()
+                speed = d.get('_speed_str', '0 KB/s') or '0 KB/s'
+                speed = re.sub(r'\x1b\[[0-9;]*[mK]', '', str(speed)).strip()
+                eta = d.get('_eta_str', '--:--') or '--:--'
+                eta = re.sub(r'\x1b\[[0-9;]*[mK]', '', str(eta)).strip()
 
                 def format_size(bytes_num):
                     if not bytes_num: return "0 KB"
@@ -77,18 +73,22 @@ class DownloadThread(QThread):
             else:
                 save_dir = DEFAULT_DOWNLOAD_PATH
                 
+            os.makedirs(save_dir, exist_ok=True)
             out_tmpl = os.path.join(save_dir, '%(title)s.%(ext)s')
             
             speed_limit_str = app_config.get("speed_limit", "0")
             limit_bytes = None
-            if speed_limit_str != "0":
+            if speed_limit_str and str(speed_limit_str).strip() != "0":
                 try:
-                    if "M" in speed_limit_str:
-                        limit_bytes = int(speed_limit_str.replace("M", "")) * 1024 * 1024
-                    elif "K" in speed_limit_str:
-                        limit_bytes = int(speed_limit_str.replace("K", "")) * 1024
-            
-                except: pass
+                    s_str = str(speed_limit_str).strip()
+                    if "M" in s_str:
+                        limit_bytes = int(float(s_str.replace("M", "").strip()) * 1024 * 1024)
+                    elif "K" in s_str:
+                        limit_bytes = int(float(s_str.replace("K", "").strip()) * 1024)
+                    else:
+                        limit_bytes = int(float(s_str))
+                except Exception:
+                    limit_bytes = None
 
             ydl_opts = {
                 'outtmpl': out_tmpl,
@@ -125,6 +125,9 @@ class DownloadThread(QThread):
                     'format': 'bestaudio[ext=m4a]/bestaudio/best',
                     'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'm4a'}],
                 })
+            elif self.format_id.startswith("audio-direct:"):
+                raw_fid = self.format_id.replace("audio-direct:", "")
+                ydl_opts['format'] = raw_fid
             else:
                 ydl_opts['format'] = self.format_id
 
@@ -134,6 +137,7 @@ class DownloadThread(QThread):
                 ydl_opts['writethumbnail'] = True 
                 if 'postprocessors' not in ydl_opts: ydl_opts['postprocessors'] = []
                 ydl_opts['postprocessors'].append({'key': 'FFmpegMetadata', 'add_metadata': True})
+                ydl_opts['postprocessors'].append({'key': 'FFmpegThumbnailsConvertor', 'format': 'jpg'})
                 ydl_opts['postprocessors'].append({'key': 'EmbedThumbnail', 'already_have_thumbnail': False})
 
             if self.sub_langs:
@@ -141,7 +145,12 @@ class DownloadThread(QThread):
                 ydl_opts['writeautomaticsub'] = True 
                 ydl_opts['subtitleslangs'] = self.sub_langs
                 
-                is_audio = self.format_id.startswith("mp3-") or self.format_id.startswith("m4a-")
+                is_audio = (
+                    self.format_id.startswith("mp3-") or 
+                    self.format_id.startswith("m4a-") or 
+                    self.format_id.startswith("audio-direct:") or
+                    self.format_id.startswith("audio:")
+                )
                 embed_enabled = getattr(self, 'embed_subs', False)
                 
                 if not self.subs_only:
@@ -158,74 +167,7 @@ class DownloadThread(QThread):
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([self.url])
 
-            if not self.is_cancelled and getattr(self, 'custom_metadata', None):
-                try:
-                    from core.workers import apply_metadata
-                    import glob
-                    from yt_dlp.utils import sanitize_filename
-                    
-                    safe_title = sanitize_filename(getattr(self, 'title', ''), restricted=False)
-                    escaped_title = glob.escape(safe_title)
-                    search_pattern = os.path.join(save_dir, f"{escaped_title}.*")
-                    downloaded_files = glob.glob(search_pattern)
-                    
-                    if downloaded_files:
-                        target_file = None
-                        for f in downloaded_files:
-                            if f.endswith(('.mp3', '.m4a')):
-                                target_file = f
-                                break
-                        
-                        if target_file:
-                            apply_metadata(target_file, self.custom_metadata)
-                            print(f"✅ Metadata applied successfully to: {target_file}")
-                except Exception as e:
-                    print(f"❌ Failed to apply metadata: {e}")
-
-            # تم تنظيم هذا الجزء لمنع تكرار الكود والإشارات
             if not self.is_cancelled:
-                from utils.helpers import get_app_dir
-                thumb_path = ""
-                if getattr(self, 'thumb_data', None):
-                    try:
-                        from yt_dlp.utils import sanitize_filename
-                        safe_title = sanitize_filename(getattr(self, 'title', ''), restricted=False)
-                        cache_dir = os.path.join(get_app_dir(), "cache", "thumbnails")
-                        os.makedirs(cache_dir, exist_ok=True)
-                        thumb_path = os.path.join(cache_dir, f"{safe_title}.jpg")
-                        with open(thumb_path, "wb") as f:
-                            f.write(self.thumb_data)
-                    except Exception as ex:
-                        print(f"Error caching thumbnail: {ex}")
-                        thumb_path = ""
-
-                history_entry = {
-                    "title": getattr(self, 'title', "Unknown"),
-                    "url": self.url,
-                    "path": save_dir,
-                    "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                    "format": self.format_id,
-                    "thumb_path": thumb_path
-                }
-                
-                # 1. إطلاق إشارة الواجهة أولاً لتبلغها بالبيانات
-                self.history_ready.emit(history_entry)
-                
-                # 2. حفظ السجل في ملف JSON
-                history_file = os.path.join(get_app_dir(), "history.json")
-                history_data = []
-                if os.path.exists(history_file):
-                    try:
-                        with open(history_file, "r", encoding="utf-8") as f:
-                            history_data = json.load(f)
-                    except: 
-                        history_data = []
-                
-                history_data.insert(0, history_entry)
-                with open(history_file, "w", encoding="utf-8") as f:
-                    json.dump(history_data, f, indent=4, ensure_ascii=False)
-                
-                # 3. إطلاق إشارة الانتهاء النهائية (مرة واحدة فقط)
                 self.finished.emit()
                 
         except UserCancelledError:
@@ -246,15 +188,18 @@ class DownloadThread(QThread):
     def cleanup_temp_files(self):
         try:
             import glob
-            from yt_dlp.utils import sanitize_filename
             if getattr(self, 'save_dir', None):
                 save_dir = self.save_dir
             elif app_config.get("save_mode") == "custom" and app_config.get("custom_path"):
                 save_dir = app_config["custom_path"]
             else:
                 save_dir = DEFAULT_DOWNLOAD_PATH
-                
-            safe_title = sanitize_filename(getattr(self, 'title', ''), restricted=False)
+
+            try:
+                from yt_dlp.utils import sanitize_filename
+                safe_title = sanitize_filename(getattr(self, 'title', ''), restricted=False)
+            except Exception:
+                safe_title = re.sub(r'[\\/*?:"<>|]', "", getattr(self, 'title', ''))
             escaped_title = glob.escape(safe_title)
             search_pattern = os.path.join(save_dir, f"{escaped_title}*")
             possible_files = glob.glob(search_pattern)

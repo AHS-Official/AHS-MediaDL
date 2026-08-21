@@ -8,6 +8,7 @@ from gui.main_window import DownloaderApp
 from utils.settings import app_config
 from gui.theme import apply_theme
 from utils import strings
+from utils.helpers import get_app_icon
 
 def suppress_qt_warnings(mode, context, message):
     if "Failed to compute left/right minimum bearings" in message:
@@ -55,7 +56,8 @@ if __name__ == "__main__":
     startup_url = sys.argv[1] if len(sys.argv) > 1 else None
 
     # تطبيق الثيم
-    apply_theme(app, app_config["theme"])
+    apply_theme(app, app_config.get("theme", "auto"))
+    app.setWindowIcon(get_app_icon())
     
     # ضبط اتجاه الواجهة (RTL للغة العربية)
     if strings.is_ar:

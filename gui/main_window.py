@@ -1,81 +1,156 @@
 import os
 import json
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QTabWidget, QStackedWidget, QApplication, 
+                             QStackedWidget, QApplication, QLabel, QFrame,
                              QSystemTrayIcon, QMenu, QMessageBox)
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QIcon, QPixmap, QColor, QPainter
 
 from utils import strings
-from utils.settings import app_config
-from gui.theme import styled
+from utils.settings import app_config, save_settings
+from utils.helpers import get_app_icon, get_app_icon_path
+from gui.theme import styled, Theme, refresh_theme
 from gui.settings_page import SettingsWidget
 
-# استدعاء التابات المستقلة
 from gui.tabs.tab_home import HomeTab
 from gui.tabs.tab_queue import DownloadsTab
-from gui.tabs.tab_history import HistoryTab
 
 class DownloaderApp(QWidget):
     def __init__(self, startup_url=None):
         super().__init__()
-        win_w = app_config.get("window_width", 700)
-        win_h = app_config.get("window_height", 650)
-        
         self.setWindowTitle(strings.APP_TITLE)
-        self.setMinimumSize(600, 500)
-        self.resize(win_w, win_h)
+        self.setWindowIcon(get_app_icon())
+        self.setMinimumSize(780, 560)
+        self.resize(920, 680)
 
-        # --- إعداد الهيكل الرئيسي والطبقات ---
-        self.window_layout = QVBoxLayout(self)
-        self.window_layout.setContentsMargins(0, 0, 0, 0)
-        
-        self.central_stacked = QStackedWidget()
-        self.window_layout.addWidget(self.central_stacked)
+        # الهيكل الرئيسي: شريط جانبي + مساحة العرض
+        self.main_layout = QHBoxLayout(self)
+        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_layout.setSpacing(0)
 
-        self.main_page = QWidget()
-        self.settings_page = QWidget()
-        
-        self.central_stacked.addWidget(self.main_page)
-        self.central_stacked.addWidget(self.settings_page)
+        # 1. الشريط الجانبي (Sidebar)
+        self.sidebar_widget = QWidget()
+        self.sidebar_widget.setObjectName("Sidebar")
+        self.sidebar_widget.setFixedWidth(230)
+        sidebar_layout = QVBoxLayout(self.sidebar_widget)
+        sidebar_layout.setContentsMargins(14, 18, 14, 18)
+        sidebar_layout.setSpacing(8)
 
-        # --- الصفحة الرئيسية (تحتوي على التابات والشريط العلوي) ---
-        self.main_layout = QVBoxLayout(self.main_page)
-        self.main_layout.setContentsMargins(10, 10, 10, 10)
-        
-        # الشريط العلوي (زر الإعدادات)
-        top_bar = QHBoxLayout()
-        top_bar.addStretch() 
-        self.settings_btn = styled.ghost_button(strings.BTN_SETTINGS)
-        self.settings_btn.clicked.connect(self.go_to_settings)
-        top_bar.addWidget(self.settings_btn)
-        self.main_layout.addLayout(top_bar)
-        
-        # التابات الثلاثة
-        self.tabs = QTabWidget()
-        self.main_layout.addWidget(self.tabs)
+        # عنوان وشعار التطبيق في الشريط الجانبي مع الأيقونة الجديدة
+        brand_container = QWidget()
+        brand_container.setStyleSheet("background: transparent; border: none;")
+        brand_layout = QHBoxLayout(brand_container)
+        brand_layout.setContentsMargins(0, 0, 0, 0)
+        brand_layout.setSpacing(10)
 
-        # دمج التابات المنفصلة
+        icon_path = get_app_icon_path()
+        if icon_path:
+            brand_img = QLabel()
+            pix = QPixmap(icon_path)
+            if not pix.isNull():
+                brand_img.setPixmap(pix.scaled(32, 32, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+                brand_img.setFixedSize(32, 32)
+                brand_img.setStyleSheet("background: transparent; border: none;")
+                brand_layout.addWidget(brand_img)
+
+        self.brand_label = QLabel(strings.APP_TITLE)
+        self.brand_label.setObjectName("SidebarBrand")
+        self.brand_label.setStyleSheet("background: transparent; border: none; font-size: 14pt; font-weight: 800;")
+        brand_layout.addWidget(self.brand_label, stretch=1)
+        sidebar_layout.addWidget(brand_container)
+        sidebar_layout.addSpacing(14)
+
+        # أزرار التنقل
+        self.nav_home_btn = QPushButton("🏠  " + (strings.APP_TAB_ADD if hasattr(strings, 'APP_TAB_ADD') else "الرئيسية"))
+        self.nav_home_btn.setObjectName("SidebarNavBtn")
+        self.nav_home_btn.setProperty("active", "true")
+        self.nav_home_btn.clicked.connect(lambda: self.switch_tab(0))
+
+        self.queue_base_title = "📥  " + (strings.APP_TAB_QUEUE if hasattr(strings, 'APP_TAB_QUEUE') else "التنزيلات")
+        self.nav_queue_btn = QPushButton(self.queue_base_title)
+        self.nav_queue_btn.setObjectName("SidebarNavBtn")
+        self.nav_queue_btn.clicked.connect(lambda: self.switch_tab(1))
+
+        settings_title = "⚙️  " + ("الإعدادات" if strings.is_ar else "Settings")
+        self.nav_settings_btn = QPushButton(settings_title)
+        self.nav_settings_btn.setObjectName("SidebarNavBtn")
+        self.nav_settings_btn.clicked.connect(lambda: self.switch_tab(2))
+
+        sidebar_layout.addWidget(self.nav_home_btn)
+        sidebar_layout.addWidget(self.nav_queue_btn)
+        sidebar_layout.addWidget(self.nav_settings_btn)
+
+        sidebar_layout.addStretch()
+
+        # زر تبديل الثيم السريع (Dark / Light) في أسفل الشريط الجانبي
+        self.theme_toggle_btn = QPushButton()
+        self.theme_toggle_btn.setObjectName("ThemeToggleBtn")
+        self.update_theme_toggle_label()
+        self.theme_toggle_btn.clicked.connect(self.toggle_quick_theme)
+        sidebar_layout.addWidget(self.theme_toggle_btn)
+
+        self.main_layout.addWidget(self.sidebar_widget)
+
+        # 2. مكدس الصفحات الرئيسي (QStackedWidget)
+        self.stacked_widget = QStackedWidget()
+        
         self.tab_home = HomeTab(self)
         self.tab_queue = DownloadsTab(self)
-        self.tab_history = HistoryTab(self)
+        self.tab_settings = SettingsWidget(self)
 
-        self.tabs.addTab(self.tab_home, strings.APP_TAB_ADD)
-        self.tabs.addTab(self.tab_queue, strings.APP_TAB_QUEUE)
-        self.tabs.addTab(self.tab_history, strings.APP_TAB_HISTORY)
-        
-        self.tabs.currentChanged.connect(self.on_tab_changed)
+        self.stacked_widget.addWidget(self.tab_home)
+        self.stacked_widget.addWidget(self.tab_queue)
+        self.stacked_widget.addWidget(self.tab_settings)
+
+        self.main_layout.addWidget(self.stacked_widget, stretch=1)
+
+        # توافق مع أي استدعاء قديم لـ self.tabs
+        self.tabs = self.stacked_widget
 
         # --- إعداد النظام في الخلفية (System Tray) ---
         self.setup_system_tray()
 
-        # --- معالجة رابط البدء لو موجود (Single Instance) ---
+        # --- معالجة رابط البدء لو موجود ---
         if startup_url:
             self.tab_home.url_input.setText(startup_url)
             QTimer.singleShot(500, self.tab_home.fetch_video_info)
 
         # --- التحقق من وجود FFmpeg عند التشغيل ---
         QTimer.singleShot(1000, self.check_ffmpeg_availability)
+
+    def switch_tab(self, index: int):
+        self.stacked_widget.setCurrentIndex(index)
+        
+        # تحديث مظهر الأزرار النشطة
+        self.nav_home_btn.setProperty("active", "true" if index == 0 else "false")
+        self.nav_queue_btn.setProperty("active", "true" if index == 1 else "false")
+        self.nav_settings_btn.setProperty("active", "true" if index == 2 else "false")
+
+        # إعادة تطبيق الأنماط لتحديث الخاصية
+        for btn in [self.nav_home_btn, self.nav_queue_btn, self.nav_settings_btn]:
+            btn.style().unpolish(btn)
+            btn.style().polish(btn)
+
+    def update_downloads_badge(self, active_count: int):
+        if active_count > 0:
+            self.nav_queue_btn.setText(f"{self.queue_base_title}  ({active_count})")
+        else:
+            self.nav_queue_btn.setText(self.queue_base_title)
+
+    def update_theme_toggle_label(self):
+        is_dark = Theme.instance().is_dark()
+        if strings.is_ar:
+            self.theme_toggle_btn.setText("☀️ الوضع النهاري" if is_dark else "🌙 الوضع الليلي")
+        else:
+            self.theme_toggle_btn.setText("☀️ Light Mode" if is_dark else "🌙 Dark Mode")
+
+    def toggle_quick_theme(self):
+        Theme.instance().toggle()
+        new_mode = Theme.instance().mode
+        app_config["theme"] = new_mode
+        save_settings(app_config)
+        refresh_theme(QApplication.instance())
+        self.update_theme_toggle_label()
 
     def check_ffmpeg_availability(self):
         from utils.helpers import is_ffmpeg_available
@@ -91,22 +166,7 @@ class DownloaderApp(QWidget):
 
     def setup_system_tray(self):
         self.tray_icon = QSystemTrayIcon(self)
-        
-        # رسم أيقونة افتراضية أو تحميل الأيقونة الأصلية
-        from utils.helpers import resource_path
-        icon_path = resource_path(os.path.join('assets', 'icon.ico'))
-        if os.path.exists(icon_path):
-            self.tray_icon.setIcon(QIcon(icon_path))
-        else:
-            pixmap = QPixmap(64, 64)
-            pixmap.fill(Qt.GlobalColor.transparent)
-            painter = QPainter(pixmap)
-            painter.setBrush(QColor("#4d78cc"))
-            painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawEllipse(4, 4, 56, 56)
-            painter.end()
-            self.tray_icon.setIcon(QIcon(pixmap))
-            
+        self.tray_icon.setIcon(get_app_icon())
         self.tray_icon.setToolTip(strings.APP_TITLE)
         
         tray_menu = QMenu()
@@ -115,9 +175,6 @@ class DownloaderApp(QWidget):
 
         quick_add_action = tray_menu.addAction("⚡ تحميل سريع من الحافظة" if strings.is_ar else "⚡ Quick Add from Clipboard")
         quick_add_action.triggered.connect(self.quick_download_from_clipboard)
-
-        batch_action = tray_menu.addAction("📦 إضافة مجموعة روابط" if strings.is_ar else "📦 Batch Download")
-        batch_action.triggered.connect(self.tab_home.open_batch_dialog)
         
         tray_menu.addSeparator()
 
@@ -127,62 +184,6 @@ class DownloaderApp(QWidget):
         self.tray_icon.setContextMenu(tray_menu)
         self.tray_icon.show()
 
-    # --- دوال التحكم في الواجهة ---
-    def on_tab_changed(self, index):
-        if self.tabs.tabText(index) == strings.APP_TAB_HISTORY:
-            self.tab_history.load_history()
-
-    def go_to_settings(self):
-        if not self.settings_page.layout():
-            self.setup_settings_ui()
-        self.central_stacked.setCurrentIndex(1)
-
-    def go_to_main(self):
-        self.central_stacked.setCurrentIndex(0)
-
-    def setup_settings_ui(self):
-        layout = QVBoxLayout(self.settings_page)
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        top_bar = QHBoxLayout()
-        top_bar.setContentsMargins(15, 10, 15, 0)
-        
-        back_text = "⬅️ رجوع للرئيسية" if strings.is_ar else "⬅️ Back to Home"
-        back_btn = styled.ghost_button(back_text)
-        back_btn.setFixedSize(160, 35)
-        back_btn.clicked.connect(self.go_to_main)
-        
-        top_bar.addWidget(back_btn)
-        top_bar.addStretch()
-        
-        layout.addLayout(top_bar)
-
-        # ربط صفحة الإعدادات المستقلة
-        self.settings_content = SettingsWidget(go_back_callback=self.go_to_main)
-        layout.addWidget(self.settings_content, stretch=1)
-
-    def save_to_history(self, history_entry):
-        from utils.helpers import get_app_dir
-        history_file = os.path.join(get_app_dir(), "history.json")
-        history_data = []
-        if os.path.exists(history_file):
-            try:
-                with open(history_file, "r", encoding="utf-8") as f:
-                    history_data = json.load(f)
-            except: 
-                history_data = []
-        
-        history_data.insert(0, history_entry)
-        
-        try:
-            with open(history_file, "w", encoding="utf-8") as f:
-                json.dump(history_data, f, indent=4, ensure_ascii=False)
-        except Exception as e:
-            print(f"Error saving history safely: {e}")
-            
-        self.tab_history.load_history()
-
-    # --- دوال التشغيل في الخلفية والاختصارات ---
     def show_normal_and_activate(self):
         self.showNormal()
         self.activateWindow()
@@ -194,7 +195,7 @@ class DownloaderApp(QWidget):
         
         if text.startswith("http"):
             self.show_normal_and_activate()
-            self.tabs.setCurrentIndex(0)
+            self.switch_tab(0)
             self.tab_home.url_input.setText(text)
             self.tab_home.fetch_video_info()
         else:
@@ -202,17 +203,6 @@ class DownloaderApp(QWidget):
                                 "لا يوجد رابط صالح في الحافظة!" if strings.is_ar else "No valid link in clipboard!")
 
     def closeEvent(self, event):
-        if app_config.get("close_to_tray", True) and QSystemTrayIcon.isSystemTrayAvailable():
-            event.ignore()
-            self.hide()
-            if app_config.get("notifications", True):
-                self.tray_icon.showMessage(
-                    strings.APP_TITLE,
-                    "التطبيق يعمل في الخلفية (الشريط العلوي)" if strings.is_ar else "App is running in the background",
-                    QSystemTrayIcon.MessageIcon.Information,
-                    2000
-                )
-        else:
-            event.accept()
-            QApplication.instance().quit()
+        event.accept()
+        QApplication.instance().quit()
 

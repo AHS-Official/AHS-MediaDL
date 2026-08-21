@@ -1,33 +1,60 @@
 import os
 import re
-import time
 import urllib.request
 import yt_dlp
-import glob
-import concurrent.futures
 from PyQt6.QtCore import QThread, pyqtSignal
-
-
 
 class ThumbnailWorker(QThread):
     thumb_loaded = pyqtSignal(int, bytes)
 
-    def __init__(self, index, video_id):
+    def __init__(self, index, thumb_url=None, video_id=None):
         super().__init__()
         self.index = index
+        self.thumb_url = thumb_url
         self.video_id = video_id
 
     def run(self):
-        url = f"https://img.youtube.com/vi/{self.video_id}/hqdefault.jpg"
+        url = self.thumb_url
+        if isinstance(url, list) and url:
+            last = url[-1]
+            url = last.get('url') if isinstance(last, dict) else last
+        elif isinstance(url, dict):
+            url = url.get('url')
+
+        if not isinstance(url, str):
+            url = None
+        else:
+            url = url.strip()
+
+        if not url and self.video_id:
+            url = f"https://img.youtube.com/vi/{self.video_id}/hqdefault.jpg"
+        elif url and not (url.startswith("http://") or url.startswith("https://")):
+            # If a video_id was passed as the second positional argument (thumb_url)
+            self.video_id = url
+            url = f"https://img.youtube.com/vi/{url}/hqdefault.jpg"
+
+        if not url:
+            return
+
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
         try:
-            import urllib.request
-            headers = {'User-Agent': 'Mozilla/5.0'}
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=10) as response:
                 data = response.read()
                 self.thumb_loaded.emit(self.index, data)
         except Exception as e:
-            print(f"Thumbnail error for {self.video_id}: {e}")
+            # Fallback to YouTube thumbnail format if we have a video_id and primary fetch failed
+            if self.video_id and url != f"https://img.youtube.com/vi/{self.video_id}/hqdefault.jpg":
+                try:
+                    fallback_url = f"https://img.youtube.com/vi/{self.video_id}/hqdefault.jpg"
+                    req = urllib.request.Request(fallback_url, headers=headers)
+                    with urllib.request.urlopen(req, timeout=10) as response:
+                        data = response.read()
+                        self.thumb_loaded.emit(self.index, data)
+                except Exception as fb_e:
+                    print(f"Thumbnail error for {self.video_id or url}: {fb_e}")
+            else:
+                print(f"Thumbnail error for {self.video_id or url}: {e}")
 
 class InfoFetcher(QThread):
     info_received = pyqtSignal(dict, bytes)
@@ -71,8 +98,6 @@ class InfoFetcher(QThread):
                     ydl_opts['cookiefile'] = cookie_path
             elif browser != "none": 
                 ydl_opts['cookiesfrombrowser'] = (browser,)
-            
-            
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(target_url, download=False)
@@ -81,44 +106,3 @@ class InfoFetcher(QThread):
         except Exception as e:
             if not self.is_cancelled:
                 self.error_received.emit(str(e))
-
-def apply_metadata(target_file, metadata):
-    """
-    Applies custom metadata (title, artist, album) to an audio file (mp3 or m4a) using ffmpeg.
-    """
-    import subprocess
-    import tempfile
-    
-    if not os.path.exists(target_file):
-        return
-        
-    ext = os.path.splitext(target_file)[1]
-    dir_name = os.path.dirname(target_file)
-    
-    # Create temp file in the same directory to make replacement atomic
-    fd, temp_file_path = tempfile.mkstemp(suffix=ext, dir=dir_name)
-    os.close(fd)
-    
-    cmd = ['ffmpeg', '-y', '-i', target_file]
-    for key, value in metadata.items():
-        if value:
-            cmd.extend(['-metadata', f'{key}={value}'])
-            
-    cmd.extend(['-codec', 'copy', temp_file_path])
-    
-    try:
-        startupinfo = None
-        if os.name == 'nt':
-            startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            startupinfo.wShowWindow = 0  # SW_HIDE
-            
-        subprocess.run(cmd, startupinfo=startupinfo, capture_output=True, text=True, check=True)
-        os.replace(temp_file_path, target_file)
-    except Exception as e:
-        print(f"Error applying metadata: {e}")
-        if os.path.exists(temp_file_path):
-            try:
-                os.remove(temp_file_path)
-            except OSError:
-                pass
