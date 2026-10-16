@@ -50,3 +50,7 @@ bin/ffmpeg.exe
 bin/ffprobe.exe
 ffmpeg.exe
 ffprobe.exe
+
+# IDE / Editor files
+.vscode/
+.agents/
