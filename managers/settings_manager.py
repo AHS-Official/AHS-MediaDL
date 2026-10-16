@@ -148,6 +148,14 @@ class SettingsManager(QObject):
         self._sync_if_modified_externally()
         return self.data
 
+    def get_current_download_dir(self) -> str:
+        """إرجاع مسار الحفظ النشط الحالي بحسب تفضيل المستخدم في الإعدادات."""
+        self._sync_if_modified_externally()
+        dl_type = self.get("download_path_type", "downloads")
+        if dl_type == "custom" and self.get("custom_path"):
+            return self.get("custom_path")
+        return self.get("last_save_dir") or os.path.join(os.path.expanduser("~"), "Downloads")
+
     def save_data(self, data):
         try:
             tmp_file = self.settings_file + '.tmp'

@@ -20,6 +20,7 @@ from gui.components.common import EmptyStateWidget, LoadingSpinner
 from gui.components.cards import DownloadCard, SearchResultCard
 from gui.components.dialogs import PackagesDialog, QualitySelectionDialog, PlaylistSelectionDialog
 from gui.components.media_panels import SingleVideoPanel, PlaylistPanel
+from gui.components.quality_tiles import SkeletonVideoCard
 from utils.helpers import (
     clean_and_shorten_title, get_colored_icon, get_current_theme_color
 )
@@ -57,17 +58,8 @@ class SearchPage(QWidget):
 
         # ── Input Bar ─────────────────────────────────────────────────────────
         url_layout = QHBoxLayout()
-        url_layout.setContentsMargins(10, 10, 10, 10)
+        url_layout.setContentsMargins(16, 6, 16, 2)
         url_layout.setSpacing(8)
-
-        self.package_btn = QPushButton(self)
-        self.package_btn.setIcon(get_colored_icon("assets/icons/package.svg", get_current_theme_color()))
-        self.package_btn.setIconSize(QSize(18, 18))
-        self.package_btn.setFixedSize(44, 44)
-        self.package_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.package_btn.setToolTip(tr("btn_packages", "Link Aggregator"))
-        self.package_btn.clicked.connect(self.show_package_dialog)
-        url_layout.addWidget(self.package_btn)
 
         self.smart_paste_btn = QPushButton(self)
         self.smart_paste_btn.setIcon(get_colored_icon("assets/icons/clipboard.svg", get_current_theme_color()))
@@ -103,11 +95,46 @@ class SearchPage(QWidget):
         self.result_stack = QStackedWidget()
         main_layout.addWidget(self.result_stack)
 
-        # Index 0: URL mode — empty state + guide + info cards
+        # Index 0: URL mode — scrollable container
+        self.page_single_scroll = QScrollArea()
+        self.page_single_scroll.setWidgetResizable(True)
+        self.page_single_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.page_single_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.page_single_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.page_single_scroll.setStyleSheet("""
+            QScrollArea {
+                background: transparent;
+                border: none;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: transparent;
+                width: 7px;
+                margin: 4px 0px 4px 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #334155;
+                min-height: 32px;
+                border-radius: 3px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #64748b;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                border: none;
+                background: none;
+                height: 0px;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+            }
+        """)
+
         self.page_single = QWidget()
+        self.page_single.setStyleSheet("background: transparent;")
         page_single_layout = QVBoxLayout(self.page_single)
-        page_single_layout.setContentsMargins(0, 0, 0, 0)
-        page_single_layout.setSpacing(10)
+        page_single_layout.setContentsMargins(16, 2, 16, 8)
+        page_single_layout.setSpacing(8)
 
         self.empty_state_widget = EmptyStateWidget(
             "assets/icons/search-lens.svg",
@@ -200,6 +227,10 @@ class SearchPage(QWidget):
         page_single_layout.addWidget(self.guide_dashboard)
         self.update_guide_theme()
 
+        self.skeleton_card = SkeletonVideoCard(self.page_single)
+        self.skeleton_card.hide()
+        page_single_layout.addWidget(self.skeleton_card)
+
         self.content_container = QWidget()
         self.content_container.hide()
         self.content_layout = QVBoxLayout(self.content_container)
@@ -208,6 +239,8 @@ class SearchPage(QWidget):
 
         # ── Shared Single-Video Panel ─────────────────────────────────────────
         self.preview_widget = SingleVideoPanel(self.main_app)
+        self.preview_widget.download_requested.connect(self.start_download)
+        self.preview_widget.cancel_requested.connect(self.cancel_action)
         self.content_layout.addWidget(self.preview_widget)
         self.content_layout.addStretch()
 
@@ -222,23 +255,63 @@ class SearchPage(QWidget):
         self.remember_choice_cb = self.preview_widget.remember_choice_cb
 
         page_single_layout.addWidget(self.content_container)
-        self.result_stack.addWidget(self.page_single)
+        self.page_single_scroll.setWidget(self.page_single)
+        self.result_stack.addWidget(self.page_single_scroll)
 
         # Index 1: Playlist mode — PlaylistPanel
+        self.page_playlist_scroll = QScrollArea()
+        self.page_playlist_scroll.setWidgetResizable(True)
+        self.page_playlist_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.page_playlist_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.page_playlist_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.page_playlist_scroll.setStyleSheet("""
+            QScrollArea {
+                background: transparent;
+                border: none;
+            }
+            QScrollBar:vertical {
+                border: none;
+                background: transparent;
+                width: 7px;
+                margin: 4px 0px 4px 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #334155;
+                min-height: 32px;
+                border-radius: 3px;
+            }
+            QScrollBar::handle:vertical:hover {
+                background: #64748b;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                border: none;
+                background: none;
+                height: 0px;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: none;
+            }
+        """)
+
         self.page_playlist = QWidget()
+        self.page_playlist.setStyleSheet("background: transparent;")
         self.page_pl_layout = QVBoxLayout(self.page_playlist)
-        self.page_pl_layout.setContentsMargins(0, 0, 0, 0)
-        self.page_pl_layout.setSpacing(12)
+        self.page_pl_layout.setContentsMargins(16, 2, 16, 8)
+        self.page_pl_layout.setSpacing(10)
 
         self.playlist_widget = PlaylistPanel(self.main_app)
+        self.playlist_widget.download_requested.connect(self.start_download)
+        self.playlist_widget.cancel_requested.connect(self.cancel_action)
         self.page_pl_layout.addWidget(self.playlist_widget)
+        self.page_pl_layout.addStretch()
 
         self.pl_select_all_cb  = self.playlist_widget.pl_select_all_cb
         self.pl_scroll         = self.playlist_widget.pl_scroll
         self.pl_items_layout   = self.playlist_widget.pl_items_layout
         self.pl_checkboxes     = self.playlist_widget.pl_checkboxes
 
-        self.result_stack.addWidget(self.page_playlist)
+        self.page_playlist_scroll.setWidget(self.page_playlist)
+        self.result_stack.addWidget(self.page_playlist_scroll)
 
         # Index 2: YouTube Search results
         self.page_search_results = QWidget()
@@ -333,10 +406,10 @@ class SearchPage(QWidget):
             self.home_controls_layout.insertWidget(0, self.cancel_btn)
 
     def setup_playlist_layout(self):
-        self.cancel_btn.show()
-        self.cancel_btn.setEnabled(True)
-        self.download_btn.show()
-        self.download_btn.setEnabled(True)
+        self.cancel_btn.hide()
+        self.cancel_btn.setEnabled(False)
+        self.download_btn.hide()
+        self.download_btn.setEnabled(False)
 
     def reset_ui_state(self):
         self.setup_single_layout()
@@ -358,6 +431,10 @@ class SearchPage(QWidget):
         self.info_card.hide()
         self.settings_card.hide()
         self.content_container.hide()
+        if hasattr(self, 'skeleton_card'):
+            self.skeleton_card.hide()
+        if hasattr(self, 'preview_widget'):
+            self.preview_widget.reset()
         self.empty_state_widget.hide_loading()
         self.empty_state_widget.hide()
         self.guide_dashboard.show()
@@ -499,9 +576,10 @@ class SearchPage(QWidget):
         self.content_container.hide()
         self.info_card.hide()
         self.settings_card.hide()
-        self.empty_state_widget.show_loading(tr("searching"))
-        self.empty_state_widget.show()
+        self.empty_state_widget.hide()
         self.guide_dashboard.hide()
+        if hasattr(self, 'skeleton_card'):
+            self.skeleton_card.show()
         self.result_stack.setCurrentIndex(0)
 
         self.inspect_worker = InspectWorker(url)
@@ -513,6 +591,8 @@ class SearchPage(QWidget):
         self.inspect_worker.start()
 
     def on_inspect_success(self, title, duration_secs, image_data, format_list, subtitles_dict=None, extra_info=None):
+        if hasattr(self, 'skeleton_card'):
+            self.skeleton_card.hide()
         self.preview_widget.populate(title, duration_secs, image_data, format_list, subtitles_dict, extra_info)
         self.clean_title = self.preview_widget.clean_title
 
@@ -521,11 +601,6 @@ class SearchPage(QWidget):
         self.content_container.show()
         self.info_card.show()
         self.settings_card.show()
-        if hasattr(self, 'cancel_btn'):
-            self.cancel_btn.show()
-            self.cancel_btn.setEnabled(True)
-        self.download_btn.show()
-        self.download_btn.setEnabled(True)
         self.inspect_btn.setEnabled(True)
         self.url_input.setEnabled(True)
 
@@ -535,6 +610,7 @@ class SearchPage(QWidget):
             if pixmap.loadFromData(data):
                 if self.is_playlist_mode:
                     self.current_pl_image = data
+                    self.playlist_widget.set_playlist_thumbnail(pixmap)
                 else:
                     self.thumb_label.setPixmap(pixmap)
                     self.thumb_label._pixmap = pixmap
@@ -562,8 +638,20 @@ class SearchPage(QWidget):
         self.is_playlist_mode = True
         self.current_pl_title = title
         self.current_pl_image = image_data
+
+        self.guide_dashboard.hide()
+        if hasattr(self, 'content_container'):
+            self.content_container.hide()
+        if hasattr(self, 'skeleton_card'):
+            self.skeleton_card.hide()
         
         self.playlist_widget.populate(title, image_data, entries)
+        self.playlist_widget.show()
+        if hasattr(self, 'page_playlist'):
+            self.page_playlist.show()
+        if hasattr(self, 'page_playlist_scroll'):
+            self.page_playlist_scroll.show()
+
         self.clean_title = self.playlist_widget.clean_title
         self.pl_checkboxes = self.playlist_widget.pl_checkboxes
 
@@ -579,6 +667,8 @@ class SearchPage(QWidget):
         self.playlist_widget.toggle_all_playlist_items()
 
     def on_inspect_error(self, error_msg):
+        if hasattr(self, 'skeleton_card'):
+            self.skeleton_card.hide()
         self.empty_state_widget.hide_loading()
         self.reset_ui_state()
         self.guide_dashboard.hide()
@@ -749,9 +839,7 @@ class SearchPage(QWidget):
                     counter += 1
             self.main_app.last_save_dir = os.path.dirname(save_path)
             self.main_app.save_settings(self.main_app.last_save_dir)
-            sub_lang = None
-            if self.preview_widget.sub_cb.isVisible() and self.preview_widget.sub_cb.isChecked():
-                sub_lang = self.preview_widget.sub_combo.currentData()
+            sub_lang = self.preview_widget.get_selected_sub_lang()
             new_card = DownloadCard(self.title_label.toolTip(), self.thumb_label._pixmap, save_path)
             new_card.url = url
             new_card.format_code = format_code
@@ -944,13 +1032,14 @@ class SearchPage(QWidget):
         if index < len(self.search_card_widgets):
             self.search_card_widgets[index].update_thumbnail(data)
 
-    def on_search_download_requested(self, url, title, thumbnail_pixmap, is_playlist=False):
+    def on_search_download_requested(self, url, title, thumbnail_pixmap, is_playlist=False, extra_info=None):
         if is_playlist:
             dialog = PlaylistSelectionDialog(
                 main_app=self.main_app,
                 url=url,
                 placeholder_title=title,
                 placeholder_pixmap=thumbnail_pixmap,
+                extra_info=extra_info,
                 parent=self
             )
             dialog.exec()
@@ -960,6 +1049,7 @@ class SearchPage(QWidget):
                 url=url,
                 placeholder_title=title,
                 placeholder_pixmap=thumbnail_pixmap,
+                extra_info=extra_info,
                 parent=self
             )
             dialog.exec()
@@ -986,7 +1076,8 @@ class SearchPage(QWidget):
     # ──────────────────────────── Icons & Theme ──────────────────────────────
 
     def update_icon_colors(self, icon_color):
-        self.package_btn.setIcon(get_colored_icon("assets/icons/package.svg", icon_color))
+        if hasattr(self, 'package_btn') and self.package_btn:
+            self.package_btn.setIcon(get_colored_icon("assets/icons/package.svg", icon_color))
         if hasattr(self, 'smart_paste_btn') and self.smart_paste_btn:
             self.smart_paste_btn.setIcon(get_colored_icon("assets/icons/clipboard.svg", icon_color))
         elif hasattr(self, 'paste_btn') and self.paste_btn:
@@ -1116,6 +1207,8 @@ class SearchPage(QWidget):
             self.playlist_widget.update_theme()
         if hasattr(self, 'preview_widget'):
             self.preview_widget.update_theme()
+        if hasattr(self, 'skeleton_card') and hasattr(self.skeleton_card, 'update_theme'):
+            self.skeleton_card.update_theme()
 
     def retranslate_ui(self):
         if hasattr(self, 'url_input'):

@@ -33,7 +33,7 @@ def get_ytdlp_cli_args():
             args += ["--js-runtimes", f"{rt}:{rt_path}"]
 
     # YouTube client arguments to prevent 403 Forbidden
-    args += ["--extractor-args", "youtube:player_client=default,ios,web_creator"]
+    args += ["--extractor-args", "youtube:player_client=default,ios"]
     return args
 
 

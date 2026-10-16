@@ -58,8 +58,8 @@ class VideoDownloader(QWidget):
         icon_path = resource_path(os.path.join('assets', 'icon.ico'))
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
-        self.resize(880, 640) 
-        self.setMinimumSize(700, 480)
+        self.resize(1000, 720) 
+        self.setMinimumSize(880, 580)
 
         self.tray_icon = QSystemTrayIcon(self)
         if os.path.exists(icon_path):

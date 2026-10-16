@@ -217,7 +217,7 @@ class ResponsiveImage(QLabel):
             painter = QPainter(self)
             painter.setRenderHint(QPainter.RenderHint.Antialiasing)
             
-            if self._pixmap and not self.size().isEmpty():
+            if self._pixmap and not self._pixmap.isNull() and not self.size().isEmpty():
                 scaled_size = self._pixmap.scaled(self.size(), Qt.AspectRatioMode.KeepAspectRatio).size()
                 x = (self.width() - scaled_size.width()) // 2
                 y = (self.height() - scaled_size.height()) // 2
@@ -270,16 +270,20 @@ class ResponsiveImage(QLabel):
 
     def setPixmap(self, pixmap):
         self.hide_loading()
-        self._pixmap = pixmap
-        self.update_image()
+        if pixmap and not pixmap.isNull():
+            self._pixmap = pixmap
+            self.update_image()
+        else:
+            self._pixmap = None
+            super().clear()
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        if self._pixmap:
+        if self._pixmap and not self._pixmap.isNull():
             self.update_image()
 
     def update_image(self):
-        if self._pixmap and not self.size().isEmpty():
+        if self._pixmap and not self._pixmap.isNull() and not self.size().isEmpty():
             scaled = self._pixmap.scaled(self.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
             super().setPixmap(scaled)
 

@@ -18,12 +18,13 @@ from utils.locales import tr
 
 class QualitySelectionDialog(QDialog):
 
-    def __init__(self, main_app, url, placeholder_title="", placeholder_pixmap=None, parent=None):
+    def __init__(self, main_app, url, placeholder_title="", placeholder_pixmap=None, extra_info=None, parent=None):
         super().__init__(parent)
         self.main_app = main_app
         self.url = url
         self.placeholder_title = placeholder_title
         self.placeholder_pixmap = placeholder_pixmap
+        self.extra_info = extra_info or {}
         self.clean_title = "video"
         self.duration_str = "00:00"
         self.image_data = b''
@@ -32,8 +33,8 @@ class QualitySelectionDialog(QDialog):
 
         self.setObjectName("QualitySelectionDialog")
         self.setWindowTitle(tr("search_download_opts", "Video Download Options"))
-        self.setMinimumSize(650, 550)
-        self.resize(650, 550)
+        self.setMinimumSize(740, 520)
+        self.resize(760, 580)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
 
@@ -43,8 +44,7 @@ class QualitySelectionDialog(QDialog):
 
     def initUI(self):
         is_dark = get_current_theme_color() == "#f1f5f9"
-        bg_color = "#0b0f19" if is_dark else "#f8fafc"
-        bg_card = "#131926" if is_dark else "#ffffff"
+        bg_card = "#0d1527" if is_dark else "#ffffff"
         border_color = "#1e293b" if is_dark else "#e2e8f0"
         text_color = "#f1f5f9" if is_dark else "#0f172a"
 
@@ -52,30 +52,7 @@ class QualitySelectionDialog(QDialog):
 
         self.setStyleSheet(f"""
             QDialog {{ 
-                background-color: {bg_color};
-            }} 
-            QFrame#MediaInfoCard {{ 
                 background-color: {bg_card};
-                border: 1px solid {border_color};
-                border-radius: 10px;
-            }}
-            QComboBox {{ 
-                background-color: {bg_card};
-                border: 1px solid {border_color};
-                border-radius: 8px;
-                padding: 6px 10px;
-                color: {text_color};
-            }} 
-            QComboBox::drop-down {{
-                border: none;
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: {bg_card};
-                color: {text_color};
-                selection-background-color: #3b82f6;
-            }}
-            QCheckBox {{ 
-                color: {text_color};
             }} 
             QPushButton {{ 
                 background-color: {bg_card};
@@ -90,25 +67,18 @@ class QualitySelectionDialog(QDialog):
                 background-color: rgba(59, 130, 246, 0.1);
                 border: 1px solid #3b82f6;
             }} 
-            QPushButton#btn_download {{ 
-                background-color: #3b82f6;
-                color: white;
-                border: none;
-            }} 
-            QPushButton#btn_download:hover {{ 
-                background-color: #60a5fa;
-            }} 
         """)
 
         self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(15, 15, 15, 15)
-        self.layout.setSpacing(12)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.setSpacing(0)
 
         # Loading Widget
         self.loading_widget = QWidget()
         loading_layout = QVBoxLayout(self.loading_widget)
         loading_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        loading_layout.setSpacing(10)
+        loading_layout.setContentsMargins(20, 60, 20, 60)
+        loading_layout.setSpacing(12)
         self.loading_lbl = QLabel(tr("search_loading_formats", "Fetching formats..."))
         self.loading_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.loading_lbl.setStyleSheet(f"color: {text_color}; font-size: 13px; font-weight: bold;")
@@ -136,7 +106,8 @@ class QualitySelectionDialog(QDialog):
         self.error_widget.hide()
         error_layout = QVBoxLayout(self.error_widget)
         error_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        error_layout.setSpacing(10)
+        error_layout.setContentsMargins(20, 60, 20, 60)
+        error_layout.setSpacing(12)
         self.error_lbl = QLabel()
         self.error_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.error_lbl.setWordWrap(True)
@@ -147,86 +118,122 @@ class QualitySelectionDialog(QDialog):
         error_layout.addWidget(self.btn_err_close)
         self.layout.addWidget(self.error_widget)
 
+        # Scroll Area for Content
+        self.scroll_area = QScrollArea(self)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll_area.setStyleSheet(f"""
+            QScrollArea {{
+                background: transparent;
+                border: none;
+            }}
+            QScrollBar:vertical {{
+                border: none;
+                background: transparent;
+                width: 8px;
+                margin: 4px 2px 4px 2px;
+            }}
+            QScrollBar::handle:vertical {{
+                background: {'#334155' if is_dark else '#cbd5e1'};
+                min-height: 28px;
+                border-radius: 4px;
+            }}
+            QScrollBar::handle:vertical:hover {{
+                background: {'#64748b' if is_dark else '#94a3b8'};
+            }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+                border: none;
+                background: none;
+                height: 0px;
+            }}
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+                background: none;
+            }}
+        """)
+
         # Content Widget
         self.content_widget = QWidget()
-        self.content_widget.hide()
+        self.content_widget.setStyleSheet("background: transparent;")
         self.content_layout = QVBoxLayout(self.content_widget)
         self.content_layout.setContentsMargins(0, 0, 0, 0)
-        self.content_layout.setSpacing(12)
+        self.content_layout.setSpacing(0)
 
         # ── Shared Single-Video Panel ──────────────────────────────────────
-        # نفس الـ widget المستخدم في صفحة البحث (inline) — الفرق فقط إن دة في نافذة.
-        self.preview_widget = SingleVideoPanel(self.main_app)
+        self.preview_widget = SingleVideoPanel(self.main_app, is_dialog=True)
+        self.preview_widget.cancel_requested.connect(self.reject)
+        self.preview_widget.download_requested.connect(self.start_download)
         self.content_layout.addWidget(self.preview_widget)
 
-        # عرض الصورة المصغرة من نتائج البحث فوراً (قبل اكتمال الـ inspection)
-        if self.placeholder_pixmap and not self.placeholder_pixmap.isNull():
-            self.preview_widget.thumb_label.setPixmap(self.placeholder_pixmap)
-            self.preview_widget.thumb_label._pixmap = self.placeholder_pixmap
-            self.preview_widget.thumb_label.show()
-            self.preview_widget.info_card.show()
-
-        # Aliases — للتوافق مع الكود القديم في start_download()
+        # Aliases — للتوافق مع الكود في start_download()
         self.thumb_label = self.preview_widget.thumb_label
         self.title_label = self.preview_widget.title_label
         self.duration_label = self.preview_widget.duration_label
         self.format_combo = self.preview_widget.format_combo
         self.sub_cb = self.preview_widget.sub_cb
         self.sub_combo = self.preview_widget.sub_combo
+        self.btn_cancel = self.preview_widget.cancel_btn
+        self.btn_dl = self.preview_widget.download_btn
 
-        actions_layout = QHBoxLayout()
-        self.btn_cancel = QPushButton(tr("btn_cancel", "Cancel"))
-        self.btn_cancel.setObjectName("btn_cancel_dialog")
-        self.btn_cancel.clicked.connect(self.reject)
-        self.btn_dl = QPushButton(tr("start_download", "Download Now"))
-        self.btn_dl.setObjectName("btn_download")
-        self.btn_dl.clicked.connect(self.start_download)
-        actions_layout.addWidget(self.btn_cancel)
-        actions_layout.addStretch()
-        actions_layout.addWidget(self.btn_dl)
-        self.content_layout.addLayout(actions_layout)
+        self.scroll_area.setWidget(self.content_widget)
+        self.layout.addWidget(self.scroll_area)
 
-        self.layout.addWidget(self.content_widget)
-
+        # عرض الكارت فوراً بالبيانات المتوفرة وحالة التحميل المسبقة
+        if self.placeholder_title or (self.placeholder_pixmap and not self.placeholder_pixmap.isNull()):
+            self.preview_widget.show_placeholder(self.placeholder_title, self.placeholder_pixmap, self.extra_info)
+            self.loading_widget.hide()
+            self.scroll_area.show()
+        else:
+            self.scroll_area.hide()
+            self.loading_widget.show()
 
     def start_inspection(self):
         from services.yt_dlp_service import InspectWorker
-        self.thumb_label.show_loading()
         self.inspect_worker = InspectWorker(self.url)
         self.inspect_worker.result_signal.connect(self.on_inspect_success)
+        self.inspect_worker.playlist_signal.connect(self.on_playlist_detected)
         self.inspect_worker.error_signal.connect(self.on_inspect_error)
         self.inspect_worker.thumbnail_signal.connect(self.on_inspect_thumbnail_loaded)
         self.inspect_worker.finished.connect(self.inspect_worker.deleteLater)
         self.inspect_worker.start()
 
+    def on_playlist_detected(self, title, image_data, entries):
+        if entries and len(entries) > 0:
+            first_url = entries[0].get('url')
+            if first_url and first_url != self.url:
+                self.url = first_url
+                self.start_inspection()
+                return
+        self.on_inspect_error(tr("playlist_detected_in_single", "This link is a playlist. Please use the playlist downloader."))
+
     def on_inspect_success(self, title, duration_secs, image_data, format_list, subtitles_dict=None, extra_info=None):
-        # تفويض كل منطق التعبئة للـ SingleVideoPanel — مكان واحد للتعديل
-        self.preview_widget.populate(title, duration_secs, image_data, format_list, subtitles_dict, extra_info)
+        merged_extra = dict(self.extra_info)
+        if extra_info:
+            merged_extra.update(extra_info)
+        self.preview_widget.populate(title, duration_secs, image_data, format_list, subtitles_dict, merged_extra)
         self.clean_title = self.preview_widget.clean_title
         self.duration_str = self.preview_widget.duration_str
-        # احتفظ بلـ loaded_pixmap لاستخدامه في start_download()
         self.loaded_pixmap = self.preview_widget.thumb_label._pixmap if hasattr(self.preview_widget.thumb_label, '_pixmap') else None
         self.loading_widget.hide()
-        self.content_widget.show()
+        self.scroll_area.show()
         self.center_on_parent()
 
-
     def on_inspect_thumbnail_loaded(self, data):
-        """يُحدِّث الصورة المصغرة إذا وصلت بشكل منفصل عن نتيجة الفحص."""
         if data:
             self.image_data = data
             self.loaded_pixmap = QPixmap()
             if self.loaded_pixmap.loadFromData(data):
                 self.thumb_label.setPixmap(self.loaded_pixmap)
                 self.thumb_label._pixmap = self.loaded_pixmap
-                self.thumb_label.show()  # مهم: الـ label مخفي افتراضياً
-                self.preview_widget.info_card.show()
+                self.thumb_label.show()
+                self.preview_widget.hero_card.show()
 
     def on_inspect_error(self, error_msg):
         self.loading_widget.hide()
+        self.scroll_area.hide()
         self.error_lbl.setText(error_msg)
         self.error_widget.show()
-        self.adjustSize()
         self.center_on_parent()
 
     def center_on_parent(self):
@@ -241,13 +248,22 @@ class QualitySelectionDialog(QDialog):
             self.move(x, y)
 
     def reject(self):
-        if hasattr(self, 'inspect_worker') and self.inspect_worker and self.inspect_worker.isRunning():
+        worker = getattr(self, 'inspect_worker', None)
+        if worker is not None:
             try:
-                self.inspect_worker.result_signal.disconnect()
-                self.inspect_worker.error_signal.disconnect()
-                self.inspect_worker.thumbnail_signal.disconnect()
+                if worker.isRunning():
+                    for sig_name in ['result_signal', 'playlist_signal', 'error_signal', 'thumbnail_signal']:
+                        sig = getattr(worker, sig_name, None)
+                        if sig:
+                            try:
+                                sig.disconnect()
+                            except Exception:
+                                pass
+            except (RuntimeError, ReferenceError):
+                pass
             except Exception:
                 pass
+            self.inspect_worker = None
         super().reject()
 
     # toggle_sub_combo و auto_select_saved_format انتقلا إلى SingleVideoPanel
@@ -339,20 +355,22 @@ class QualitySelectionDialog(QDialog):
         self.main_app.download_manager.process_queue()
         self.accept()
 class PlaylistSelectionDialog(QDialog):
-    def __init__(self, main_app, url, placeholder_title="", placeholder_pixmap=None, parent=None):
+    def __init__(self, main_app, url, placeholder_title="", placeholder_pixmap=None, extra_info=None, parent=None):
         super().__init__(parent)
         self.main_app = main_app
         self.url = url
+        self.placeholder_title = placeholder_title
+        self.placeholder_pixmap = placeholder_pixmap
+        self.extra_info = extra_info or {}
         self.settings_file = getattr(main_app, 'settings_file', '')
-        # placeholder_title/pixmap محفوظان للتوافق مع الكود القديم — الـ panel يجلب البيانات بنفسه
 
         self.pl_checkboxes = []
         self.loaded_pixmap = None
 
         self.setObjectName("PlaylistSelectionDialog")
         self.setWindowTitle(tr("search_playlist_opts", "Playlist Download Options"))
-        self.setMinimumSize(650, 550)
-        self.resize(650, 550)
+        self.setMinimumSize(740, 520)
+        self.resize(760, 680)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowType.WindowContextHelpButtonHint)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
 
@@ -362,8 +380,8 @@ class PlaylistSelectionDialog(QDialog):
 
     def initUI(self):
         is_dark = get_current_theme_color() == "#f1f5f9"
-        self.bg_color = "#0b0f19" if is_dark else "#f8fafc"
-        self.bg_card  = "#131926" if is_dark else "#ffffff"
+        self.bg_color = "#0d1527" if is_dark else "#ffffff"
+        self.bg_card  = "#0d1527" if is_dark else "#ffffff"
         self.border_color = "#1e293b" if is_dark else "#e2e8f0"
         self.text_color = "#f1f5f9" if is_dark else "#0f172a"
 
@@ -372,25 +390,6 @@ class PlaylistSelectionDialog(QDialog):
             QDialog {{
                 background-color: {self.bg_color};
             }}
-            QFrame#MediaInfoCard {{
-                background-color: {self.bg_card};
-                border: 1px solid {self.border_color};
-                border-radius: 10px;
-            }}
-            QComboBox {{
-                background-color: {self.bg_card};
-                border: 1px solid {self.border_color};
-                border-radius: 8px;
-                padding: 6px 10px;
-                color: {self.text_color};
-            }}
-            QComboBox::drop-down {{ border: none; }}
-            QComboBox QAbstractItemView {{
-                background-color: {self.bg_card};
-                color: {self.text_color};
-                selection-background-color: #3b82f6;
-            }}
-            QCheckBox {{ color: {self.text_color}; }}
             QPushButton {{
                 background-color: {self.bg_card};
                 border: 1px solid {self.border_color};
@@ -404,23 +403,18 @@ class PlaylistSelectionDialog(QDialog):
                 background-color: rgba(59, 130, 246, 0.1);
                 border: 1px solid #3b82f6;
             }}
-            QPushButton#btn_download {{
-                background-color: #3b82f6;
-                color: white;
-                border: none;
-            }}
-            QPushButton#btn_download:hover {{ background-color: #60a5fa; }}
         """)
 
         self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(15, 15, 15, 15)
-        self.layout.setSpacing(12)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.setSpacing(0)
 
         # Loading Widget
         self.loading_widget = QWidget()
         loading_layout = QVBoxLayout(self.loading_widget)
         loading_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        loading_layout.setSpacing(10)
+        loading_layout.setContentsMargins(20, 60, 20, 60)
+        loading_layout.setSpacing(12)
         self.loading_lbl = QLabel(tr("search_loading_playlist", "Fetching playlist items... please wait."))
         self.loading_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.loading_lbl.setStyleSheet(f"color: {self.text_color}; font-size: 13px; font-weight: bold;")
@@ -447,7 +441,8 @@ class PlaylistSelectionDialog(QDialog):
         self.error_widget.hide()
         error_layout = QVBoxLayout(self.error_widget)
         error_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        error_layout.setSpacing(10)
+        error_layout.setContentsMargins(20, 60, 20, 60)
+        error_layout.setSpacing(12)
         self.error_lbl = QLabel()
         self.error_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.error_lbl.setWordWrap(True)
@@ -458,43 +453,90 @@ class PlaylistSelectionDialog(QDialog):
         error_layout.addWidget(self.btn_err_close)
         self.layout.addWidget(self.error_widget)
 
+        # Scroll Area for Content
+        self.scroll_area = QScrollArea(self)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll_area.setStyleSheet(f"""
+            QScrollArea {{
+                background: transparent;
+                border: none;
+            }}
+            QScrollBar:vertical {{
+                border: none;
+                background: transparent;
+                width: 8px;
+                margin: 4px 2px 4px 2px;
+            }}
+            QScrollBar::handle:vertical {{
+                background: {'#334155' if is_dark else '#cbd5e1'};
+                min-height: 28px;
+                border-radius: 4px;
+            }}
+            QScrollBar::handle:vertical:hover {{
+                background: {'#64748b' if is_dark else '#94a3b8'};
+            }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+                border: none;
+                background: none;
+                height: 0px;
+            }}
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+                background: none;
+            }}
+        """)
+
         # Content Widget
         self.content_widget = QWidget()
-        self.content_widget.hide()
+        self.content_widget.setStyleSheet("background: transparent;")
         self.content_layout = QVBoxLayout(self.content_widget)
         self.content_layout.setContentsMargins(0, 0, 0, 0)
-        self.content_layout.setSpacing(12)
+        self.content_layout.setSpacing(0)
 
         # ── Shared Playlist Panel ──────────────────────────────────────
-        self.playlist_widget = PlaylistPanel(self.main_app)
+        self.playlist_widget = PlaylistPanel(self.main_app, is_dialog=True)
+        self.playlist_widget.cancel_requested.connect(self.reject)
+        self.playlist_widget.download_requested.connect(self.start_download)
         self.content_layout.addWidget(self.playlist_widget)
 
         # Aliases — للتوافق مع start_download()
         self.format_combo = self.playlist_widget.format_combo
         self.sub_cb       = self.playlist_widget.sub_cb
+        self.btn_cancel   = self.playlist_widget.cancel_btn
+        self.btn_dl       = self.playlist_widget.download_btn
 
-        actions_layout = QHBoxLayout()
-        self.btn_cancel = QPushButton(tr("btn_cancel", "Cancel"))
-        self.btn_cancel.clicked.connect(self.reject)
-        self.btn_dl = QPushButton(tr("start_download", "Download Now"))
-        self.btn_dl.setObjectName("btn_download")
-        self.btn_dl.clicked.connect(self.start_download)
-        actions_layout.addWidget(self.btn_cancel)
-        actions_layout.addStretch()
-        actions_layout.addWidget(self.btn_dl)
-        self.content_layout.addLayout(actions_layout)
+        self.scroll_area.setWidget(self.content_widget)
+        self.layout.addWidget(self.scroll_area)
 
-        self.layout.addWidget(self.content_widget)
-
+        # عرض الكارت فوراً بالبيانات المتوفرة وحالة التحميل المسبقة
+        if self.placeholder_title or (self.placeholder_pixmap and not self.placeholder_pixmap.isNull()):
+            self.playlist_widget.show_placeholder(self.placeholder_title, self.placeholder_pixmap, extra_info=self.extra_info)
+            self.loading_widget.hide()
+            self.scroll_area.show()
+        else:
+            self.scroll_area.hide()
+            self.loading_widget.show()
 
     def start_inspection(self):
         from services.yt_dlp_service import InspectWorker
         self.inspect_worker = InspectWorker(self.url)
         self.inspect_worker.playlist_signal.connect(self.on_inspect_success)
+        self.inspect_worker.result_signal.connect(self.on_single_video_detected)
         self.inspect_worker.error_signal.connect(self.on_inspect_error)
         self.inspect_worker.thumbnail_signal.connect(self.on_inspect_thumbnail_loaded)
         self.inspect_worker.finished.connect(self.inspect_worker.deleteLater)
         self.inspect_worker.start()
+
+    def on_single_video_detected(self, title, duration_secs, image_data, format_list, subtitles_dict=None, extra_info=None):
+        entries = [{
+            'title': title,
+            'duration': duration_secs,
+            'url': self.url,
+            'id': ''
+        }]
+        self.on_inspect_success(title, image_data, entries)
 
     def on_inspect_success(self, title, image_data, entries):
         if len(entries) >= 200:
@@ -512,10 +554,10 @@ class PlaylistSelectionDialog(QDialog):
         # تفويض كل منطق التعبئة للـ PlaylistPanel — مكان واحد للتعديل
         self.playlist_widget.populate(title, image_data, entries)
         self.clean_title   = self.playlist_widget.clean_title
-        self.loaded_pixmap = self.playlist_widget.loaded_pixmap
+        self.loaded_pixmap = getattr(self.playlist_widget, 'loaded_pixmap', None)
         self.pl_checkboxes = self.playlist_widget.pl_checkboxes
         self.loading_widget.hide()
-        self.content_widget.show()
+        self.scroll_area.show()
         self.center_on_parent()
 
     def on_inspect_thumbnail_loaded(self, data):
@@ -537,9 +579,9 @@ class PlaylistSelectionDialog(QDialog):
 
     def on_inspect_error(self, error_msg):
         self.loading_widget.hide()
+        self.scroll_area.hide()
         self.error_lbl.setText(error_msg)
         self.error_widget.show()
-        self.adjustSize()
         self.center_on_parent()
 
     def center_on_parent(self):
@@ -554,13 +596,22 @@ class PlaylistSelectionDialog(QDialog):
             self.move(x, y)
 
     def reject(self):
-        if hasattr(self, 'inspect_worker') and self.inspect_worker and self.inspect_worker.isRunning():
+        worker = getattr(self, 'inspect_worker', None)
+        if worker is not None:
             try:
-                self.inspect_worker.playlist_signal.disconnect()
-                self.inspect_worker.error_signal.disconnect()
-                self.inspect_worker.thumbnail_signal.disconnect()
+                if worker.isRunning():
+                    for sig_name in ['playlist_signal', 'result_signal', 'error_signal', 'thumbnail_signal']:
+                        sig = getattr(worker, sig_name, None)
+                        if sig:
+                            try:
+                                sig.disconnect()
+                            except Exception:
+                                pass
+            except (RuntimeError, ReferenceError):
+                pass
             except Exception:
                 pass
+            self.inspect_worker = None
         super().reject()
 
     def start_download(self):

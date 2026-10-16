@@ -823,6 +823,8 @@ class SearchResultCard(QFrame):
         self.thumbnail_url = thumbnail_url
         self.download_callback = download_callback
         self.is_playlist = is_playlist
+        self.duration_sec = duration_sec
+        self.view_count = view_count
         self.has_real_thumbnail = False
         
         self.setFrameShape(QFrame.Shape.StyledPanel)
@@ -951,7 +953,16 @@ class SearchResultCard(QFrame):
         
     def action_download(self):
         if self.download_callback:
-            self.download_callback(self.url, self.title_label._full_text, self.thumb_lbl.pixmap(), self.is_playlist)
+            extra = {
+                'uploader': self.uploader_lbl.text() if hasattr(self, 'uploader_lbl') else '',
+                'view_count': self.views_lbl.text() if hasattr(self, 'views_lbl') else (str(self.view_count) if getattr(self, 'view_count', None) else ''),
+                'duration': getattr(self, 'duration_sec', 0),
+                'entries_count': str(self.view_count) if getattr(self, 'is_playlist', False) else '',
+            }
+            try:
+                self.download_callback(self.url, self.title_label._full_text, self.thumb_lbl.pixmap(), self.is_playlist, extra)
+            except TypeError:
+                self.download_callback(self.url, self.title_label._full_text, self.thumb_lbl.pixmap(), self.is_playlist)
             
     def update_thumbnail(self, image_data):
         if image_data:

@@ -20,6 +20,17 @@ STRINGS = {
     "btn_next": "التالي",
     "start_download": "تنزيل الآن",
     "err_empty_url": "يرجى إدخال الرابط أولاً!",
+    "tab_video": "فيديو",
+    "tab_audio": "موسيقى",
+    "choose_video_quality": "اختر دقة وجودة الفيديو:",
+    "choose_audio_quality": "اختر دقة وجودة الصوت:",
+    "embed_subtitle_header": "تضمين ملف الترجمة داخل الفيديو:",
+    "embed_subtitle_note": "سيتم دمج الترجمة المختارة تلقائياً",
+    "save_folder_label": "مجلد حفظ الملف:",
+    "btn_change_folder": "تغيير",
+    "selected_quality_badge": "الجودة المختارة:",
+    "approx_size_prefix": "الحجم:",
+    "size_prefix_simple": "الحجم:",
     
     # الشاشة الترحيبية والسطب (Onboarding & Setup)
     "onboarding_title": "معالج الإعداد",
@@ -364,7 +375,32 @@ STRINGS = {
     "tools_up_to_date": "المحرك محدث لأحدث إصدار",
     "tools_btn_check_update": "التحقق والتحديث",
     "tools_btn_reinstall": "إعادة التثبيت",
-    "tools_active_downloads_warn": "⚠️ توجد تحميلات جارية حالياً!\nيرجى إيقافها مؤقتاً أو الانتظار حتى تكتمل قبل تحديث المحركات لتجنب قفل الملفات في ويندوز."
+    "tools_active_downloads_warn": "⚠️ توجد تحميلات جارية حالياً!\nيرجى إيقافها مؤقتاً أو الانتظار حتى تكتمل قبل تحديث المحركات لتجنب قفل الملفات في ويندوز.",
+
+    # Media Inspect Hero Card & Quality Selection
+    "tab_video": "فيديو",
+    "tab_music": "موسيقى",
+    "choose_video_quality": "اختر الجودة:",
+    "choose_audio_quality": "اختر جودة الصوت:",
+    "subtitles_header": "الترجمة:",
+    "embed_subtitle_header": "الترجمة:",
+    "embed_subtitle_note": "سيتم دمج الترجمة المختارة تلقائياً",
+    "no_subtitle_selected_note": "لن يتم دمج أي ملف ترجمة",
+    "save_directory_label": "مجلد الحفظ:",
+    "btn_change_folder": "تغيير",
+    "size_prefix_simple": "الحجم:",
+    "selected_quality_badge": "الجودة المختارة:",
+    "remember_my_choice": "تذكر دائماً اختياري للجودة والصيغة",
+    "none_subtitle": "بدون ترجمة",
+    "no_subtitles_found": "لا توجد ترجمات متوفرة",
+    "videos_list_header": "قائمة الفيديوهات:",
+    "deselect_all": "إلغاء تحديد الكل",
+    "playlist_subtitles_label": "تنزيل ودمج الترجمة لفيديوهات القائمة",
+    "playlist_badge_text": "قائمة تشغيل",
+    "playlist_selected_count": "المحدد: {} من {} فيديو",
+    "playlist_videos_count": "{} فيديو",
+    "playlist_calculating": "جاري الحساب...",
+    "fetching_subtitles": "جاري فحص الترجمة..."
 }
 
 
